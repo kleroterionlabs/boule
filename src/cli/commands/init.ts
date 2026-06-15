@@ -46,7 +46,7 @@ export function registerInit(program: Command): void {
       mkdirSync(dir, { recursive: true });
       writeFileSync(file, configTemplate(global.repo ?? "owner/repo"), "utf8");
       process.stdout.write(
-        `Wrote ${file}\nNext: set ANTHROPIC_API_KEY and GITHUB_TOKEN, then run \`boule doctor\` and \`boule bootstrap\`.\n`,
+        `Wrote ${file}\nNext: set CLAUDE_CODE_OAUTH_TOKEN (\`claude setup-token\`) or ANTHROPIC_API_KEY, plus GITHUB_TOKEN, then run \`boule doctor\` and \`boule bootstrap\`.\n`,
       );
     });
 }

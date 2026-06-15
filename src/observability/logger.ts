@@ -15,6 +15,7 @@ export function createLogger(cfg: Config, runId: string): Logger {
         "*.apiKey",
         "*.privateKey",
         "headers.authorization",
+        "CLAUDE_CODE_OAUTH_TOKEN",
         "ANTHROPIC_API_KEY",
         "GITHUB_TOKEN",
         "GITHUB_APP_PRIVATE_KEY",

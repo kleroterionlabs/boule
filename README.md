@@ -23,7 +23,7 @@ The full architecture, methodology, GitHub schema, agent roster, and a dogfooded
 npm install        # install deps and build prompts
 npm run build      # compile to dist/  (bin: dist/bin.js)
 
-export ANTHROPIC_API_KEY=...      # or an existing `claude login`
+export CLAUDE_CODE_OAUTH_TOKEN=...  # from `claude setup-token` (Pro/Max sub) — or ANTHROPIC_API_KEY, or an existing `claude login`
 export GITHUB_TOKEN=...           # fine-grained PAT or GitHub App token
 
 node dist/bin.js init --repo owner/repo   # writes .boule/config.yaml

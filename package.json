@@ -2,7 +2,17 @@
   "name": "@kleroterion/cli",
   "version": "0.0.0",
   "description": "Autonomous CLI that drives Claude Agent SDK to produce product designs, requirements, competitive & gap analyses as typed GitHub issues.",
-  "keywords": ["claude", "agent-sdk", "github", "product-management", "requirements", "competitive-analysis", "gap-analysis", "autonomous-agent", "cli"],
+  "keywords": [
+    "claude",
+    "agent-sdk",
+    "github",
+    "product-management",
+    "requirements",
+    "competitive-analysis",
+    "gap-analysis",
+    "autonomous-agent",
+    "cli"
+  ],
   "homepage": "https://github.com/kleroterionlabs/boule#readme",
   "bugs": { "url": "https://github.com/kleroterionlabs/boule/issues" },
   "repository": { "type": "git", "url": "git+https://github.com/kleroterionlabs/boule.git" },

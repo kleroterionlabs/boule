@@ -14,9 +14,9 @@ export function registerDoctor(program: Command): void {
       const checks: Check[] = [];
 
       checks.push({
-        name: "ANTHROPIC_API_KEY set (or Claude subscription login)",
-        ok: Boolean(process.env.ANTHROPIC_API_KEY),
-        hint: "export ANTHROPIC_API_KEY=… (or run `claude login`)",
+        name: "Claude auth present (CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY)",
+        ok: Boolean(process.env.CLAUDE_CODE_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY),
+        hint: "run `claude setup-token` and set CLAUDE_CODE_OAUTH_TOKEN (or set ANTHROPIC_API_KEY)",
       });
 
       const ghCreds =

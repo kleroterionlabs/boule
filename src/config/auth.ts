@@ -6,9 +6,16 @@ export type GithubAuth =
   | { kind: "app"; appId: string; installationId: number; privateKey: string }
   | { kind: "pat"; token: string };
 
+export type ClaudeAuthKind = "oauth-token" | "api-key" | "subscription-login";
+
 export interface AuthConfig {
   github: GithubAuth;
-  anthropicApiKey?: string; // undefined ⇒ SDK falls back to subscription login
+  /**
+   * How the Claude Agent SDK will authenticate. The SDK reads the actual token from the
+   * environment itself (CLAUDE_CODE_OAUTH_TOKEN, else ANTHROPIC_API_KEY), so we only record
+   * which path is in play — no Claude secret is ever held on this object.
+   */
+  claudeAuth: ClaudeAuthKind;
 }
 
 function readKeyMaybeBase64(v: string): string {
@@ -23,11 +30,17 @@ function readKeyMaybeBase64(v: string): string {
 }
 
 export function resolveAuth(env: NodeJS.ProcessEnv): AuthConfig {
-  const anthropicApiKey = env.ANTHROPIC_API_KEY || undefined;
+  // Prefer a Claude Code OAuth token (`claude setup-token` → a Pro/Max subscription, ideal for CI),
+  // then a metered API key, else an existing `claude login` session the SDK discovers on its own.
+  const claudeAuth: ClaudeAuthKind = env.CLAUDE_CODE_OAUTH_TOKEN
+    ? "oauth-token"
+    : env.ANTHROPIC_API_KEY
+      ? "api-key"
+      : "subscription-login";
 
   if (env.GITHUB_APP_ID && env.GITHUB_APP_INSTALLATION_ID && env.GITHUB_APP_PRIVATE_KEY) {
     return {
-      anthropicApiKey,
+      claudeAuth,
       github: {
         kind: "app",
         appId: env.GITHUB_APP_ID,
@@ -37,7 +50,7 @@ export function resolveAuth(env: NodeJS.ProcessEnv): AuthConfig {
     };
   }
   if (env.GITHUB_TOKEN) {
-    return { anthropicApiKey, github: { kind: "pat", token: env.GITHUB_TOKEN } };
+    return { claudeAuth, github: { kind: "pat", token: env.GITHUB_TOKEN } };
   }
   throw new ConfigError(
     "No GitHub credentials. Set GITHUB_TOKEN, or the GITHUB_APP_* trio. Run `boule doctor`.",

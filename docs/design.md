@@ -83,7 +83,7 @@ Drawing the boundary is as important as the capability list — these are hard n
 The primary user is a **founder, PM, or engineering lead** on a small-to-mid team who owns the "what and why" but is starved for the time to do it rigorously. Two usage modes, same binary:
 
 1. **Local / interactive.** A human runs `boule design "<idea>"` from a terminal, watches issues and a board materialize, reviews the daily-status Discussion, and iterates with follow-up commands (`boule refine`, `boule gap`, `boule compete`). `--dry-run` previews every GitHub mutation as a diff before anything is written.
-2. **CI / unattended.** The same commands run from a GitHub Actions workflow (`.github/workflows/boule.yml`) on a schedule or trigger — e.g. nightly `boule sync` to re-score the backlog and post the daily status, or `boule compete` weekly to refresh competitor profiles. Credentials come straight from the process environment (`ANTHROPIC_API_KEY`, `GITHUB_TOKEN` or a GitHub App), and `BOULE_BUDGET_USD` caps spend per run.
+2. **CI / unattended.** The same commands run from a GitHub Actions workflow (`.github/workflows/boule.yml`) on a schedule or trigger — e.g. nightly `boule sync` to re-score the backlog and post the daily status, or `boule compete` weekly to refresh competitor profiles. Credentials come straight from the process environment (`CLAUDE_CODE_OAUTH_TOKEN`, `GITHUB_TOKEN` or a GitHub App), and `BOULE_BUDGET_USD` caps spend per run.
 
 Both modes are deterministic in their side effects: idempotent issue creation (dedupe by `boule-id`), update-in-place on content-hash change, and an audit-trail comment instead of a silent overwrite — so re-running in CI never spams duplicates.
 
@@ -1652,13 +1652,13 @@ Resolution order, highest wins:
 ```
 1. Command-line flags          (--repo, --project, --budget, --model, ...)
 2. Environment variables       (BOULE_REPO, BOULE_PROJECT, BOULE_BUDGET_USD,
-                                GITHUB_TOKEN / GITHUB_APP_*, ANTHROPIC_API_KEY)
+                                GITHUB_TOKEN / GITHUB_APP_*, CLAUDE_CODE_OAUTH_TOKEN)
 3. .boule/config.yaml          (project-local, committed; secrets excluded)
 4. Built-in defaults           (model=claude-opus-4-8, effort=xhigh, budget=$5,
                                 config path=.boule/config.yaml)
 ```
 
-`boule config list --show-origin` prints each resolved value with the layer it came from, so CI failures ("why is it hitting the wrong repo?") are one command away. Secrets (`GITHUB_TOKEN`, `ANTHROPIC_API_KEY`, App private key) are **only** read from env (layer 2) — they are never written to or read from `config.yaml`, matching the existing `.gitignore` (`.env*` ignored) and `.env.example`.
+`boule config list --show-origin` prints each resolved value with the layer it came from, so CI failures ("why is it hitting the wrong repo?") are one command away. Secrets (`GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, App private key) are **only** read from env (layer 2) — they are never written to or read from `config.yaml`, matching the existing `.gitignore` (`.env*` ignored) and `.env.example`.
 
 ```yaml
 # .boule/config.yaml  (committed — no secrets)
@@ -1741,10 +1741,10 @@ $ boule init
   ? Repository (owner/repo): acme/widgets
   ? Project v2 number: 7
   ✔ wrote .boule/config.yaml
-  ✔ wrote .env (fill in GITHUB_TOKEN, ANTHROPIC_API_KEY)
+  ✔ wrote .env (fill in GITHUB_TOKEN, CLAUDE_CODE_OAUTH_TOKEN)
 
 $ boule doctor
-  ✔ ANTHROPIC_API_KEY      present (api-key mode)
+  ✔ CLAUDE_CODE_OAUTH_TOKEN      present (subscription / setup-token)
   ✔ GITHUB_TOKEN           fine-grained PAT · acme/widgets
   ✔ scopes                 Issues:rw  Projects:rw  Discussions:rw  Metadata:r
   ✔ GraphQL budget         4,998 / 5,000 points
@@ -1804,7 +1804,7 @@ jobs:
       - run: npm i -g @kleroterion/cli
       - name: Post daily status (autonomous)
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN:      ${{ secrets.BOULE_GH_PAT }}   # project-scoped, NOT the default token
           BOULE_REPO:        acme/widgets
           BOULE_PROJECT:     "7"
@@ -2072,7 +2072,7 @@ jobs:
       - run: npm ci
       - run: npx boule triage --repo "$GITHUB_REPOSITORY" --project 4 --budget 2
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.BOULE_TOKEN }}   # App-installation token preferred
 ```
 
@@ -2357,7 +2357,7 @@ This section specifies how Boule is configured, how it authenticates to GitHub a
 ```
 config precedence (low → high)        identity & secrets             durable state
 ┌──────────────────────────┐         ┌────────────────────────┐     ┌─────────────────────┐
-│ built-in zod defaults    │         │ ANTHROPIC_API_KEY      │     │  GitHub  (truth)    │
+│ built-in zod defaults    │         │ CLAUDE_CODE_OAUTH_TOKEN      │     │  GitHub  (truth)    │
 │ → .boule/config.yaml     │  ──────▶│ GITHUB_TOKEN  | GH App │────▶│  issues/projects/   │
 │ → env (BOULE_*, tokens)  │         │  (env / OS keychain)   │     │  discussions        │
 │ → CLI flags              │         └────────────────────────┘     └─────────┬───────────┘
@@ -2496,9 +2496,15 @@ Only a whitelisted set of env vars maps into config (`BOULE_REPO → repo`, `BOU
 
 Boule authenticates to two services. Both credential sets are read **from the process environment only** (matching the committed `.env.example`); `.env` is git-ignored and is loaded for local dev via `dotenv` before `loadRuntimeConfig` runs. In CI, the variables come straight from the runner's secret store — no `.env` file is materialized.
 
-#### Anthropic
+#### Claude (Agent SDK)
 
-`ANTHROPIC_API_KEY` is passed through to the Claude Agent SDK. If absent, Boule falls back to an existing Claude Code subscription login (the SDK's default credential discovery) and warns once. No Anthropic secret is ever written to a config file or an issue.
+Authentication is read from the environment and passed straight to the Claude Agent SDK — Boule never holds the secret on an object (`resolveAuth` records only *which* path is in play, as `claudeAuth`). Resolution order:
+
+1. **`CLAUDE_CODE_OAUTH_TOKEN`** — a Claude Code token from `claude setup-token`, backed by a Claude Pro/Max subscription. Preferred, and the recommended CI secret (no per-token metering).
+2. **`ANTHROPIC_API_KEY`** — a metered Anthropic API key, if you'd rather pay per token.
+3. **Subscription login** — neither set: the SDK discovers an existing `claude login` session (local dev), and Boule warns once.
+
+No Claude secret is ever written to a config file, an issue, or a log — the logger redacts both `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY`.
 
 #### GitHub — two supported identities
 
@@ -2556,7 +2562,7 @@ The App/PAT must carry exactly:
 4. **Discussions scope** — list `discussionCategories` and verify the three configured category names (`Daily Status`, `Agent Handoffs`, `Design Review`) **exist**, since categories cannot be created via API. Missing categories are reported with a link to repo settings.
 5. **Issue Types** — query `organization.issueTypes`; if the configured custom types (`Design`, `Requirement`, `Competitor`, `Gap`, `Epic`) are absent, warn and recommend `taxonomy.useIssueTypes: false` (label fallback) rather than failing.
 6. **Rate-limit headroom** — read REST `x-ratelimit-remaining` and `rateLimit{ remaining resetAt }`; warn if either budget is below 20%.
-7. **Anthropic** — confirm `ANTHROPIC_API_KEY` or a subscription login is usable via a 1-token count/ping.
+7. **Anthropic** — confirm `CLAUDE_CODE_OAUTH_TOKEN` or a subscription login is usable via a 1-token count/ping.
 
 `boule doctor` exits `0` only when 1–4 and 7 pass; 5–6 are warnings. CI pipelines should run `boule doctor` as a required step before `boule run`.
 
@@ -2607,7 +2613,7 @@ export function createRootLogger(cfg: Config, runId: string) {
       // never log secrets even if accidentally passed in an object (§9.5)
       paths: [
         "*.token", "*.apiKey", "*.privateKey", "*.authorization",
-        "headers.authorization", "ANTHROPIC_API_KEY", "GITHUB_TOKEN",
+        "headers.authorization", "CLAUDE_CODE_OAUTH_TOKEN", "GITHUB_TOKEN",
         "GITHUB_APP_PRIVATE_KEY",
       ],
       censor: "[REDACTED]",
@@ -3405,7 +3411,7 @@ jobs:
         env:
           BOULE_E2E: "1"
           BOULE_SANDBOX_REPO: boule-bot/sandbox
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # GitHub App auth — NOT GITHUB_TOKEN (it cannot touch Projects v2).
           BOULE_APP_ID: ${{ secrets.BOULE_APP_ID }}
           BOULE_APP_PRIVATE_KEY: ${{ secrets.BOULE_APP_PRIVATE_KEY }}
@@ -3448,7 +3454,7 @@ jobs:
             --max-graphql-points 4000 \
             ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           BOULE_APP_ID: ${{ secrets.BOULE_APP_ID }}
           BOULE_APP_PRIVATE_KEY: ${{ secrets.BOULE_APP_PRIVATE_KEY }}
           BOULE_APP_INSTALLATION_ID: ${{ secrets.BOULE_APP_INSTALLATION_ID }}
@@ -3813,7 +3819,7 @@ gantt
 
 | Milestone | Goal | Key deliverables | Exit criteria |
 |---|---|---|---|
-| **M0 — Scaffold & bootstrap** | Project skeleton can authenticate and provision a repo. | `boule init` (creates labels `artifact:*`/`area:*`/`status:*`/`priority:*`, native Issue Types via GraphQL `createIssueType` with label fallback); `gh auth`/`GITHUB_TOKEN` + `ANTHROPIC_API_KEY` wiring; `query()` smoke test with the `boule` SDK MCP server; `boule doctor` capability probe; cost-cap + audit-log plumbing (no-op writes). | `boule doctor` green; one dry-run tool call round-trips; CI runs `boule --version` headless. |
+| **M0 — Scaffold & bootstrap** | Project skeleton can authenticate and provision a repo. | `boule init` (creates labels `artifact:*`/`area:*`/`status:*`/`priority:*`, native Issue Types via GraphQL `createIssueType` with label fallback); `gh auth`/`GITHUB_TOKEN` + `CLAUDE_CODE_OAUTH_TOKEN` wiring; `query()` smoke test with the `boule` SDK MCP server; `boule doctor` capability probe; cost-cap + audit-log plumbing (no-op writes). | `boule doctor` green; one dry-run tool call round-trips; CI runs `boule --version` headless. |
 | **M1 — Design + Requirements** | The two foundational artifact types are autonomously authored as typed issues. | `design` + `requirement` artifact defs; `designAuthor`, `requirementEngineer`, `critic` agents; 29148 validators + numeric-NFR gate + `shall` boilerplate + Gherkin AC; idempotency block + dedupe (`findByBouleId`) + edit-in-place + audit comment; Epic→Feature→Requirement sub-issue linking. | From a one-line brief, Boule emits a Design issue + N Requirement sub-issues, all passing validators; re-run creates **zero** duplicates; `--dry-run` prints the plan. |
 | **M2 — Projects v2 + Competitive + Gap** | Planning fields and the two analytical artifacts. | Projects v2 provisioning (Status, Iteration, RICE, MoSCoW, WSJF custom fields via GraphQL); `competitor` (SWOT per-competitor + one market-overview Five-Forces issue) and `gap` (Current/Desired/Gap/Action grid) artifacts; `competitorScout` (Haiku/Sonnet fan-out + sourced evidence URLs & capture dates) and `gapAnalyst` agents; RICE/WSJF scoring written to project fields; large matrices split across sub-issues to respect the 65 536-char body limit. | Competitive run produces per-competitor SWOT issues + a Five-Forces market issue with cited evidence; gaps land as ranked backlog items on a Project board. |
 | **M3 — Discussions & daily status** | Agent-to-agent collaboration + the "dashboard". | Discussion categories (`design-review`, `handoff`, `status`); agents debate/hand-off/request-review via `postDiscussion`/`replyDiscussion`; **daily status** Discussion (standup: created/updated/blocked, cost spent, open questions). | Two agents complete a review→revision loop in a Discussion thread; a daily-status post is generated on schedule and links the day's artifacts. |
