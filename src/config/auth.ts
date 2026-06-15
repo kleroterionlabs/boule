@@ -38,14 +38,14 @@ export function resolveAuth(env: NodeJS.ProcessEnv): AuthConfig {
       ? "api-key"
       : "subscription-login";
 
-  if (env.GITHUB_APP_ID && env.GITHUB_APP_INSTALLATION_ID && env.GITHUB_APP_PRIVATE_KEY) {
+  if (env.BOULE_APP_ID && env.BOULE_APP_INSTALLATION_ID && env.BOULE_APP_PRIVATE_KEY) {
     return {
       claudeAuth,
       github: {
         kind: "app",
-        appId: env.GITHUB_APP_ID,
-        installationId: Number(env.GITHUB_APP_INSTALLATION_ID),
-        privateKey: readKeyMaybeBase64(env.GITHUB_APP_PRIVATE_KEY),
+        appId: env.BOULE_APP_ID,
+        installationId: Number(env.BOULE_APP_INSTALLATION_ID),
+        privateKey: readKeyMaybeBase64(env.BOULE_APP_PRIVATE_KEY),
       },
     };
   }
@@ -53,6 +53,6 @@ export function resolveAuth(env: NodeJS.ProcessEnv): AuthConfig {
     return { claudeAuth, github: { kind: "pat", token: env.GITHUB_TOKEN } };
   }
   throw new ConfigError(
-    "No GitHub credentials. Set GITHUB_TOKEN, or the GITHUB_APP_* trio. Run `boule doctor`.",
+    "No GitHub credentials. Set GITHUB_TOKEN, or the BOULE_APP_* trio. Run `boule doctor`.",
   );
 }

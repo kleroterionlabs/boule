@@ -22,14 +22,14 @@ export function registerDoctor(program: Command): void {
       const ghCreds =
         Boolean(process.env.GITHUB_TOKEN) ||
         Boolean(
-          process.env.GITHUB_APP_ID &&
-            process.env.GITHUB_APP_INSTALLATION_ID &&
-            process.env.GITHUB_APP_PRIVATE_KEY,
+          process.env.BOULE_APP_ID &&
+            process.env.BOULE_APP_INSTALLATION_ID &&
+            process.env.BOULE_APP_PRIVATE_KEY,
         );
       checks.push({
         name: "GitHub credentials present",
         ok: ghCreds,
-        hint: "set GITHUB_TOKEN, or the GITHUB_APP_* trio",
+        hint: "set GITHUB_TOKEN, or the BOULE_APP_* trio",
       });
 
       let cfgError = "";

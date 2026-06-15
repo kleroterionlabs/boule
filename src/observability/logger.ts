@@ -18,7 +18,7 @@ export function createLogger(cfg: Config, runId: string): Logger {
         "CLAUDE_CODE_OAUTH_TOKEN",
         "ANTHROPIC_API_KEY",
         "GITHUB_TOKEN",
-        "GITHUB_APP_PRIVATE_KEY",
+        "BOULE_APP_PRIVATE_KEY",
       ],
       censor: "[REDACTED]",
     },

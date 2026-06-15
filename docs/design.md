@@ -1652,7 +1652,7 @@ Resolution order, highest wins:
 ```
 1. Command-line flags          (--repo, --project, --budget, --model, ...)
 2. Environment variables       (BOULE_REPO, BOULE_PROJECT, BOULE_BUDGET_USD,
-                                GITHUB_TOKEN / GITHUB_APP_*, CLAUDE_CODE_OAUTH_TOKEN)
+                                GITHUB_TOKEN / BOULE_APP_*, CLAUDE_CODE_OAUTH_TOKEN)
 3. .boule/config.yaml          (project-local, committed; secrets excluded)
 4. Built-in defaults           (model=claude-opus-4-8, effort=xhigh, budget=$5,
                                 config path=.boule/config.yaml)
@@ -2512,7 +2512,7 @@ Boule supports **both** auth modes the platform offers, selected automatically b
 
 | Mode | Env vars | When to use | How the token is minted |
 |---|---|---|---|
-| **GitHub App installation** (preferred for autonomous CI) | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY` | Org-scale autonomy: distinct bot identity, 5,000→12,500 req/hr that scales with installation, short-lived (1 hr) tokens, granular org **Projects** permission, auditable. | `@octokit/auth-app` `createAppAuth(...)` → `auth({ type: "installation" })`; token cached in-memory with its `expires_at`, auto-refreshed at <5 min remaining. Never persisted. |
+| **GitHub App installation** (preferred for autonomous CI) | `BOULE_APP_ID`, `BOULE_APP_INSTALLATION_ID`, `BOULE_APP_PRIVATE_KEY` | Org-scale autonomy: distinct bot identity, 5,000→12,500 req/hr that scales with installation, short-lived (1 hr) tokens, granular org **Projects** permission, auditable. | `@octokit/auth-app` `createAppAuth(...)` → `auth({ type: "installation" })`; token cached in-memory with its `expires_at`, auto-refreshed at <5 min remaining. Never persisted. |
 | **Fine-grained PAT** | `GITHUB_TOKEN` | Single-repo / prototype use. Simpler, but historically weaker Projects v2 support. | Used verbatim as a Bearer token. |
 
 ```ts
@@ -2522,18 +2522,18 @@ export type AuthConfig =
   | { kind: "pat"; token: string };
 
 export function resolveAuth(env: NodeJS.ProcessEnv): AuthConfig {
-  if (env.GITHUB_APP_ID && env.GITHUB_APP_INSTALLATION_ID && env.GITHUB_APP_PRIVATE_KEY) {
+  if (env.BOULE_APP_ID && env.BOULE_APP_INSTALLATION_ID && env.BOULE_APP_PRIVATE_KEY) {
     return {
       kind: "app",
-      appId: env.GITHUB_APP_ID,
-      installationId: Number(env.GITHUB_APP_INSTALLATION_ID),
+      appId: env.BOULE_APP_ID,
+      installationId: Number(env.BOULE_APP_INSTALLATION_ID),
       // accept the key inline or as a path; supports base64 to survive CI secret stores
-      privateKey: readKeyMaybeBase64(env.GITHUB_APP_PRIVATE_KEY),
+      privateKey: readKeyMaybeBase64(env.BOULE_APP_PRIVATE_KEY),
     };
   }
   if (env.GITHUB_TOKEN) return { kind: "pat", token: env.GITHUB_TOKEN };
   throw new ConfigError(
-    "No GitHub credentials. Set GITHUB_TOKEN, or the GITHUB_APP_* trio. See `boule doctor`.",
+    "No GitHub credentials. Set GITHUB_TOKEN, or the BOULE_APP_* trio. See `boule doctor`.",
   );
 }
 ```
@@ -2614,7 +2614,7 @@ export function createRootLogger(cfg: Config, runId: string) {
       paths: [
         "*.token", "*.apiKey", "*.privateKey", "*.authorization",
         "headers.authorization", "CLAUDE_CODE_OAUTH_TOKEN", "GITHUB_TOKEN",
-        "GITHUB_APP_PRIVATE_KEY",
+        "BOULE_APP_PRIVATE_KEY",
       ],
       censor: "[REDACTED]",
     },
