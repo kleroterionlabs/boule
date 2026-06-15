@@ -1,15 +1,18 @@
-// src/cli/commands/doctor.ts — preflight: validate environment, credentials, and config.
+// src/cli/commands/doctor.ts — preflight: validate environment, credentials, and config,
+// then (unless --offline) mint a real GitHub token and confirm the API answers.
 import type { Command } from "commander";
 import { resolveAuth } from "../../config/auth.js";
 import { type CliFlags, loadConfig } from "../../config/load.js";
+import { probeGitHub } from "../../github/probe.js";
 
 type Check = { name: string; ok: boolean; hint: string };
 
 export function registerDoctor(program: Command): void {
   program
     .command("doctor")
-    .description("Validate environment, credentials, and config before a run.")
-    .action((_local: unknown, cmd: Command) => {
+    .description("Validate environment, credentials, and config; live-probe GitHub auth.")
+    .option("--offline", "skip the live GitHub auth probe (static checks only)", false)
+    .action(async (local: { offline?: boolean }, cmd: Command) => {
       const global = cmd.optsWithGlobals() as CliFlags;
       const checks: Check[] = [];
 
@@ -57,6 +60,31 @@ export function registerDoctor(program: Command): void {
         process.stdout.write(`${c.ok ? "✓" : "✗"} ${c.name}${c.ok ? "" : `  → ${c.hint}`}\n`);
         if (!c.ok) allOk = false;
       }
-      if (!allOk) process.exitCode = 3;
+
+      // Live probe: mint a real token and hit the API. Only when creds resolve and not --offline.
+      let probeFailed = false;
+      if (local.offline) {
+        process.stdout.write("\n(skipped live GitHub probe: --offline)\n");
+      } else if (ghCreds && authError === "") {
+        const auth = resolveAuth(process.env);
+        process.stdout.write(
+          `\nProbing GitHub (${auth.github.kind === "app" ? "minting an installation token" : "checking the token"})…\n`,
+        );
+        const probe = await probeGitHub(auth);
+        if (!probe.ok) {
+          probeFailed = true;
+          process.stdout.write(`✗ GitHub auth probe failed: ${probe.error}\n`);
+        } else if (probe.mode === "app") {
+          const who = probe.identity ? ` for @${probe.identity}` : "";
+          process.stdout.write(`✓ installation token minted${who} — ${probe.repoCount} repo(s) accessible\n`);
+          const repos = probe.repos ?? [];
+          for (const r of repos.slice(0, 20)) process.stdout.write(`    ${r}\n`);
+          if (repos.length > 20) process.stdout.write(`    … and ${repos.length - 20} more\n`);
+        } else {
+          process.stdout.write(`✓ token authenticates (${probe.rateRemaining} REST requests remaining)\n`);
+        }
+      }
+
+      if (!allOk || probeFailed) process.exitCode = 3;
     });
 }
