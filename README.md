@@ -1,5 +1,7 @@
 # Boule
 
+[![CI](https://github.com/kleroterionlabs/boule/actions/workflows/ci.yml/badge.svg)](https://github.com/kleroterionlabs/boule/actions/workflows/ci.yml)
+
 > **Autonomous, CLI-only, GitHub-native AI product & program management — built on the Claude Agent SDK.**
 
 Boule is a command-line tool that turns a one-line idea into a fully-formed, tracked software initiative. It runs a fleet of specialized Claude agents that produce **product designs**, **requirements**, **competitive analysis**, and **gap analysis**, then files and grooms the work as **GitHub Issues + Projects v2**, collaborating and reporting through **GitHub Discussions**.
