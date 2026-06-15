@@ -1,0 +1,47 @@
+# Dogfooding: Boule grooms its own backlog and posts a daily status Discussion.
+# Requires two repo/org secrets:
+#   ANTHROPIC_API_KEY    — Claude Agent SDK
+#   BOULE_GITHUB_TOKEN   — fine-grained PAT or App token with Issues/Projects/Discussions write
+#                          (the default GITHUB_TOKEN cannot write org Projects v2 or Discussions)
+name: Boule Daily
+
+on:
+  schedule:
+    - cron: "0 13 * * 1-5" # 13:00 UTC, weekdays
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Plan only; write nothing"
+        type: boolean
+        default: false
+
+concurrency:
+  group: boule-daily
+  cancel-in-progress: false
+
+jobs:
+  groom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Triage the backlog
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.BOULE_GITHUB_TOKEN }}
+          BOULE_REPO: ${{ github.repository }}
+        run: node dist/bin.js triage ${{ inputs.dry_run && '--dry-run' || '' }} --budget 3
+
+      - name: Post daily status
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.BOULE_GITHUB_TOKEN }}
+          BOULE_REPO: ${{ github.repository }}
+        run: node dist/bin.js daily ${{ inputs.dry_run && '--dry-run' || '' }} --budget 2

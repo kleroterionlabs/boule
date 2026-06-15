@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # prompts.generated.ts is committed; regenerate and fail if it drifted from the .md sources.
+      - run: npm run gen:prompts
+      - run: git diff --exit-code src/agents/prompts.generated.ts
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test -- --coverage
+      - run: npm run build

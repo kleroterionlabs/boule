@@ -1,0 +1,267 @@
+{
+  "labels": [
+    {
+      "name": "kind/design",
+      "color": "8957E5",
+      "description": "Artifact kind: Product Design / PRD. Fallback for the Design Issue Type when native types are unavailable. Single-valued."
+    },
+    {
+      "name": "kind/requirement",
+      "color": "8957E5",
+      "description": "Artifact kind: a single ISO-29148 'shall'-form requirement with Gherkin acceptance criteria. Fallback for the Requirement Issue Type. Single-valued."
+    },
+    {
+      "name": "kind/competitor",
+      "color": "8957E5",
+      "description": "Artifact kind: one competitor profile (SWOT + feature-matrix row). Fallback for the Competitor Issue Type. Single-valued."
+    },
+    {
+      "name": "kind/gap",
+      "color": "8957E5",
+      "description": "Artifact kind: one current-vs-desired delta (GAP grid). Fallback for the Gap Issue Type. Single-valued."
+    },
+    {
+      "name": "kind/epic",
+      "color": "8957E5",
+      "description": "Artifact kind: large body of work spanning features. Fallback for the Epic Issue Type (GitHub ships no native Epic built-in). Single-valued."
+    },
+    {
+      "name": "kind/feature",
+      "color": "8957E5",
+      "description": "Artifact kind: shippable capability. Fallback for the Feature Issue Type. Single-valued."
+    },
+    {
+      "name": "kind/task",
+      "color": "8957E5",
+      "description": "Artifact kind: implementable unit of work. Fallback for the Task Issue Type. Single-valued."
+    },
+    {
+      "name": "kind/spike",
+      "color": "8957E5",
+      "description": "Artifact kind: time-boxed research/investigation to retire risk. Fallback for the Spike Issue Type. Single-valued."
+    },
+    {
+      "name": "status/triage",
+      "color": "BFBFBF",
+      "description": "Lifecycle: newly created, not yet processed. Mirrors the Project 'Status' field for repo-only viewers. Single-valued."
+    },
+    {
+      "name": "status/in-design",
+      "color": "A371F7",
+      "description": "Lifecycle: design/requirement drafting in progress. Mirrors Project Status. Single-valued."
+    },
+    {
+      "name": "status/in-review",
+      "color": "D4A72C",
+      "description": "Lifecycle: awaiting agent or human review. Mirrors Project Status. Single-valued."
+    },
+    {
+      "name": "status/blocked",
+      "color": "D73A49",
+      "description": "Lifecycle: blocked on a dependency or human decision. Mirrors Project Status. Single-valued."
+    },
+    {
+      "name": "status/ready",
+      "color": "0E8A16",
+      "description": "Lifecycle: accepted, ready to build. Mirrors Project Status. Single-valued."
+    },
+    {
+      "name": "status/done",
+      "color": "6E7781",
+      "description": "Lifecycle: completed / merged. Mirrors Project Status. Single-valued."
+    },
+    {
+      "name": "area/auth",
+      "color": "1D76DB",
+      "description": "Domain area: authentication / identity. Product sub-system the issue touches. Multi-valued."
+    },
+    {
+      "name": "area/billing",
+      "color": "1D76DB",
+      "description": "Domain area: billing / payments / pricing. Multi-valued."
+    },
+    {
+      "name": "area/ingestion",
+      "color": "1D76DB",
+      "description": "Domain area: data ingestion / pipelines. Multi-valued."
+    },
+    {
+      "name": "area/routing",
+      "color": "1D76DB",
+      "description": "Domain area: routing / navigation / decision engine. Multi-valued."
+    },
+    {
+      "name": "area/ux",
+      "color": "1D76DB",
+      "description": "Domain area: UX / UI / front-end flows. Multi-valued."
+    },
+    {
+      "name": "area/api",
+      "color": "1D76DB",
+      "description": "Domain area: public/internal API surface. Multi-valued."
+    },
+    {
+      "name": "area/infra",
+      "color": "1D76DB",
+      "description": "Domain area: infrastructure / platform / CI. Multi-valued."
+    },
+    {
+      "name": "area/market",
+      "color": "1D76DB",
+      "description": "Domain area: market overview / competitive landscape (used on the Market Overview issue). Multi-valued."
+    },
+    {
+      "name": "priority/p0",
+      "color": "B60205",
+      "description": "Priority bucket: P0 — top priority, drop-everything. Coarse echo of RICE/WSJF rank and MoSCoW 'Must'. Single-valued."
+    },
+    {
+      "name": "priority/p1",
+      "color": "D93F0B",
+      "description": "Priority bucket: P1 — high priority. Echoes MoSCoW 'Should'. Single-valued."
+    },
+    {
+      "name": "priority/p2",
+      "color": "FBCA04",
+      "description": "Priority bucket: P2 — medium priority. Echoes MoSCoW 'Could'. Single-valued."
+    },
+    {
+      "name": "priority/p3",
+      "color": "0E8A16",
+      "description": "Priority bucket: P3 — low priority / backlog. Single-valued."
+    },
+    {
+      "name": "agent/orchestrator",
+      "color": "5319E7",
+      "description": "Authoring/owning Boule subagent: the top-level Orchestrator. Audit + routing. Multi-valued."
+    },
+    {
+      "name": "agent/architect",
+      "color": "5319E7",
+      "description": "Authoring/owning Boule subagent: Product Designer / architect. Multi-valued."
+    },
+    {
+      "name": "agent/researcher",
+      "color": "5319E7",
+      "description": "Authoring/owning Boule subagent: Competitive Analyst / researcher. Multi-valued."
+    },
+    {
+      "name": "agent/pm",
+      "color": "5319E7",
+      "description": "Authoring/owning Boule subagent: Requirements Engineer / PM. Multi-valued."
+    },
+    {
+      "name": "agent/reviewer",
+      "color": "5319E7",
+      "description": "Authoring/owning Boule subagent: Critic / Reviewer. Multi-valued."
+    },
+    {
+      "name": "boule/generated",
+      "color": "0052CC",
+      "description": "Operational: issue was authored by Boule. Lets humans filter all bot output (label:boule/generated). Applied to every Boule-created issue."
+    },
+    {
+      "name": "boule/needs-human",
+      "color": "E11D48",
+      "description": "Operational: escalation flag — Boule could not satisfy a gate (e.g. failed 29148 repair loop) and requires human decision."
+    },
+    {
+      "name": "boule/superseded",
+      "color": "6E7781",
+      "description": "Operational: artifact replaced by a newer one rather than deleted; set during supersession instead of closing without trace."
+    }
+  ],
+  "issueTypes": [
+    {
+      "name": "Design",
+      "description": "A PRD / product-design doc: problem statement, personas, goals & explicit non-goals, JTBD job stories, UX flows, success metrics/KPIs, risks, open questions. Root of the artifact chain; parents Requirement and Epic. Custom org type."
+    },
+    {
+      "name": "Requirement",
+      "description": "A single ISO/IEC/IEEE 29148 'shall'-form requirement with Gherkin (Given/When/Then) acceptance criteria and numeric, verifiable NFRs. Sub-issue of a Design; parents Task. Custom org type."
+    },
+    {
+      "name": "Epic",
+      "description": "A large body of work spanning multiple features, derived from a Design or Gap. Parents Feature. Custom org type (GitHub ships no native Epic built-in); falls back to the kind/epic label on a Feature-typed issue when custom types are unavailable."
+    },
+    {
+      "name": "Feature",
+      "description": "A shippable capability. Child of an Epic; parents Task. Maps to the GitHub built-in 'Feature' type."
+    },
+    {
+      "name": "Task",
+      "description": "An implementable unit of work with a Connextra user story + Gherkin acceptance criteria, keyed back to a Requirement via 'Verifies'. Child of Feature/Requirement/Gap. Maps to the GitHub built-in 'Task' type."
+    },
+    {
+      "name": "Competitor",
+      "description": "One competitor profile: SWOT plus a feature-matrix row and pricing, every claim carrying a sourced evidence URL + capture date. Sub-issue of a 'Market Overview' Design/Competitor issue. Custom org type."
+    },
+    {
+      "name": "Gap",
+      "description": "One current-vs-desired delta expressed as a GAP grid row (Current | Desired | Gap | Action), with a McKinsey 7S / CMMI maturity lens. Child of a Design or Competitor; parents Task. Custom org type."
+    },
+    {
+      "name": "Spike",
+      "description": "A time-boxed research/investigation issue to retire risk before committing to a Requirement or Feature. Child of an Epic/Feature. Custom org type."
+    }
+  ],
+  "projectFields": [
+    {
+      "name": "Status",
+      "dataType": "SINGLE_SELECT",
+      "options": ["Triage", "In Design", "In Review", "Ready", "In Progress", "Blocked", "Done"]
+    },
+    {
+      "name": "Kind",
+      "dataType": "SINGLE_SELECT",
+      "options": ["Design", "Requirement", "Competitor", "Gap", "Epic", "Feature", "Task", "Spike"]
+    },
+    {
+      "name": "Priority",
+      "dataType": "SINGLE_SELECT",
+      "options": ["P0", "P1", "P2", "P3"]
+    },
+    {
+      "name": "Effort",
+      "dataType": "NUMBER",
+      "options": []
+    },
+    {
+      "name": "RICE",
+      "dataType": "NUMBER",
+      "options": []
+    },
+    {
+      "name": "Confidence",
+      "dataType": "NUMBER",
+      "options": []
+    },
+    {
+      "name": "Iteration",
+      "dataType": "ITERATION",
+      "options": []
+    },
+    {
+      "name": "Source",
+      "dataType": "TEXT",
+      "options": []
+    }
+  ],
+  "discussionCategories": [
+    {
+      "name": "Agent Forum",
+      "description": "Agent-to-agent debate, hand-offs, and 'request review' threads. The accepted reply is marked as the answer to record the resolution. Maps to section 5.4 'Agent Forum' (isAnswerable=true).",
+      "format": "question"
+    },
+    {
+      "name": "Design Review",
+      "description": "Structured critique of Design/Requirement issues before they reach 'Ready'. The reviewer agent posts findings, the author resolves, and the sign-off comment is marked as the answer. (isAnswerable=true).",
+      "format": "question"
+    },
+    {
+      "name": "Daily Status",
+      "description": "The daily standup / 'dashboard' post — one Discussion per UTC day (keyed boule-status-YYYY-MM-DD), summarizing created/updated/closed artifacts, board snapshot, budget, and blockers. Announcement-style so it is non-answerable. (isAnswerable=false).",
+      "format": "announcement"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+// src/cli/index.ts — thin adapter: parse argv → build a workflow request → call a command handler.
+import { Command, Option } from "commander";
+import { registerBootstrap } from "./commands/bootstrap.js";
+import { registerCompete } from "./commands/compete.js";
+import { registerDaily } from "./commands/daily.js";
+import { registerDesign } from "./commands/design.js";
+import { registerDoctor } from "./commands/doctor.js";
+import { registerGap } from "./commands/gap.js";
+import { registerInit } from "./commands/init.js";
+import { registerPlan } from "./commands/plan.js";
+import { registerRequirements } from "./commands/requirements.js";
+import { registerStatus } from "./commands/status.js";
+import { registerSync } from "./commands/sync.js";
+import { registerTriage } from "./commands/triage.js";
+
+export function buildProgram(): Command {
+  const program = new Command();
+  program
+    .name("boule")
+    .description("Autonomous PM/program-manager/analyst on GitHub, powered by the Claude Agent SDK.")
+    .version("0.0.0")
+    // global control flags (read by command handlers via program.optsWithGlobals())
+    .option("--repo <owner/repo>", "target repository")
+    .option("--project <number>", "target Projects v2 number", (v) => Number(v))
+    .option("--model <id>", "orchestrator model")
+    .addOption(
+      new Option("--effort <level>", "reasoning effort").choices(["low", "medium", "high", "xhigh", "max"]),
+    )
+    .option("--budget <usd>", "hard cost cap (USD)", (v) => Number(v))
+    .option("--max-turns <n>", "max agentic turns", (v) => Number(v))
+    .option("--dry-run", "plan only; deny all GitHub writes", false)
+    .option("--json", "machine-readable NDJSON output", false)
+    .option("--config <path>", "config file path")
+    .option("-v, --verbose", "verbose progress", false);
+
+  for (const register of [
+    registerInit,
+    registerDoctor,
+    registerBootstrap,
+    registerDesign,
+    registerRequirements,
+    registerCompete,
+    registerGap,
+    registerPlan,
+    registerSync,
+    registerTriage,
+    registerStatus,
+    registerDaily,
+  ]) {
+    register(program);
+  }
+  return program;
+}
+
+/** Map a thrown error to a process exit code (see CLI UX §6.6). */
+export function exitCodeFor(err: unknown): number {
+  const name = (err as { name?: string })?.name ?? "";
+  if (name === "ConfigError") return 3;
+  if (name === "BudgetExceededError") return 4;
+  if (name === "RateLimitError") return 5;
+  return 1;
+}
