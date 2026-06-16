@@ -13,6 +13,7 @@ import { registerInit } from "./commands/init.js";
 import { registerPlan } from "./commands/plan.js";
 import { registerRefine } from "./commands/refine.js";
 import { registerRequirements } from "./commands/requirements.js";
+import { registerResolve } from "./commands/resolve.js";
 import { registerResume } from "./commands/resume.js";
 import { registerRuns } from "./commands/runs.js";
 import { registerStatus } from "./commands/status.js";
@@ -54,6 +55,7 @@ export function buildProgram(): Command {
     registerDaily,
     registerUndo,
     registerResume,
+    registerResolve,
     registerRuns,
     registerConfig,
     registerAuth,

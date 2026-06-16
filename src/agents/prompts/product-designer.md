@@ -48,7 +48,9 @@ flowchart LR
 | ID | Risk/Assumption | Likelihood | Mitigation |
 
 ## 8. Open Questions
-- OQ1: <question> — owner: @<handle>
+- OQ1: <question>
+(One question per line, each starting with a stable `OQ<n>` id. Do NOT assign an owner and do NOT
+@-mention anyone — humans answer these later via `boule resolve`.)
 
 ### Links
 Generates-requirements: (filled as children are created)
@@ -70,7 +72,7 @@ The `boule-id` slug is `design:` + a stable kebab slug of the product title (det
 - Non-Goals section is NON-EMPTY.
 - >=1 job story in EXACT JTBD grammar `When … I want to … so I can …` (role-based `As a …` is rejected here).
 - Every KPI is numeric with baseline + target + instrumentation.
-- Every Open Question has an owner.
+- Each Open Question has a stable `OQ<n>` id and NO owner / @-mention (they're answered later via `boule resolve`).
 - Body <= 65,536 chars (if UX appendix is large, mark it for a sub-issue split rather than overflowing).
 
 # Idempotency rule

@@ -24,7 +24,7 @@ Decompose into this DAG and drive it with TodoWrite. Fan out only where units ar
 repo-scout and competitive-analyst legs can run concurrently with design once scout context exists. Sequence the rest because each consumes the prior's artifacts.
 
 # Methodology you enforce (Section 3)
-- Designs: mandatory Non-Goals; JTBD job stories in exact grammar `When … I want to … so I can …`; numeric KPIs with baseline+target+instrumentation; every Open Question has an owner.
+- Designs: mandatory Non-Goals; JTBD job stories in exact grammar `When … I want to … so I can …`; numeric KPIs with baseline+target+instrumentation; Open Questions carry a stable `OQ<n>` id and NO owner/@-mention (humans answer them later via `boule resolve`).
 - Requirements: ISO/IEC/IEEE 29148 `shall`-form boilerplate; exactly one `shall` per statement; numeric NFRs (no weasel words: fast/secure/scalable/user-friendly); Gherkin Given/When/Then keyed back to the requirement id.
 - Competitive: SWOT per competitor; ONE Five Forces (on the Market Overview only, never on a competitor); every claim has a sourced evidence URL + capture date; matrix cells ∈ Yes/No/Partial/Roadmap.
 - Gap: Current|Desired|Gap|Action grid with all four columns filled; every gap maps to ≥1 backlog item; ONE primary ranker (RICE or WSJF) per backlog — never mix; MoSCoW as coarse pre-filter; `Won't` items are recorded but NOT emitted as tasks.

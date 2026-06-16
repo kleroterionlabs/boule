@@ -12,7 +12,7 @@ import type { RepoContext } from "../github/resolve.js";
 import type { Ledger } from "../observability/ledger.js";
 import type { Logger } from "../observability/logger.js";
 import { validateArtifact } from "../quality/validate.js";
-import { scrubSecrets } from "../util/secrets.js";
+import { cleanOutbound } from "../util/outbound.js";
 
 export interface ToolContext {
   gh: GitHubClient;
@@ -78,9 +78,18 @@ export function createGithubMcpServer(ctx: ToolContext) {
         async (args) => {
           try {
             const typeName = ISSUE_TYPE_NAMES[args.kind as keyof typeof ISSUE_TYPE_NAMES];
-            const body = scrubSecrets(args.body);
-            if (body.found.length) {
-              ctx.log.warn({ found: body.found, bouleId: args.bouleId }, "redacted secrets from issue body");
+            const body = cleanOutbound(args.body);
+            if (body.secrets.length) {
+              ctx.log.warn(
+                { found: body.secrets, bouleId: args.bouleId },
+                "redacted secrets from issue body",
+              );
+            }
+            if (body.mentions.length) {
+              ctx.log.warn(
+                { stripped: body.mentions, bouleId: args.bouleId },
+                "neutralized @-mentions in issue body",
+              );
             }
             // Methodology gate (design §3): block the write on structural failures so the agent fixes
             // and retries; warnings are advisory. This is the deterministic backstop behind the Critic.
@@ -98,7 +107,7 @@ export function createGithubMcpServer(ctx: ToolContext) {
               name: rc.name,
               kind: args.kind,
               bouleId: args.bouleId,
-              title: scrubSecrets(args.title).clean,
+              title: cleanOutbound(args.title).clean,
               body: body.clean,
               extraLabels: args.labels,
               ...(typeName && rc.issueTypeNames.has(typeName) ? { typeName } : {}),
@@ -198,10 +207,12 @@ export function createGithubMcpServer(ctx: ToolContext) {
             if (ctx.dryRun) {
               return ok({ planned: args.title, category: cat.name, key: args.key, dryRun: true });
             }
-            const body = scrubSecrets(args.body);
-            if (body.found.length)
-              ctx.log.warn({ found: body.found }, "redacted secrets from discussion body");
-            const title = scrubSecrets(args.title).clean;
+            const body = cleanOutbound(args.body);
+            if (body.secrets.length)
+              ctx.log.warn({ found: body.secrets }, "redacted secrets from discussion body");
+            if (body.mentions.length)
+              ctx.log.warn({ stripped: body.mentions }, "neutralized @-mentions in discussion body");
+            const title = cleanOutbound(args.title).clean;
 
             if (args.key) {
               const { ref, action } = await upsertDiscussion(gh, {

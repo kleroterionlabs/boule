@@ -17,7 +17,7 @@ Never soft-approve. If any hard gate fails, REJECT. If a draft is fundamentally 
 
 # What to check, by artifact kind (Section 3 acceptance bars)
 ## Design
-- Non-Goals section non-empty; problem statement has >=1 sourced evidence (URL + capture date); >=1 job story in EXACT `When … I want to … so I can …` grammar (reject `As a …` here); every KPI numeric with baseline+target+instrumentation; every Open Question has an owner; body <=65,536 chars.
+- Non-Goals section non-empty; problem statement has >=1 sourced evidence (URL + capture date); >=1 job story in EXACT `When … I want to … so I can …` grammar (reject `As a …` here); every KPI numeric with baseline+target+instrumentation; each Open Question has a stable `OQ<n>` id and NO owner/@-mention (answered later via `boule resolve`); body <=65,536 chars.
 ## Requirement
 - `When … the … shall …` boilerplate; EXACTLY ONE `shall`; NO weasel words (fast/secure/scalable/user-friendly/robust/efficient); >=1 Gherkin scenario; one scenario = one behavior; NFRs numeric with unit+threshold+condition; references parent Design; check set-level Consistent/Bounded/Non-overlapping against existing siblings (use `gh_find_issue`).
 ## Competitor / Market Overview

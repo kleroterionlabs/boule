@@ -4,6 +4,7 @@ import { OPERATIONAL_LABELS, kindLabel } from "../core/taxonomy.js";
 // exact-match) — NOT issue search, which is tokenized full-text + eventually consistent and would
 // let duplicates slip through. A create-then-reconcile pass converges concurrent races.
 import type { ArtifactKind, IssueRef, UpsertResult } from "../core/types.js";
+import { preserveResolutions } from "../quality/openQuestions.js";
 import { contentHash, idLabel, parseBouleBlock, withBouleBlock } from "../util/idempotency.js";
 import type { GitHubClient } from "./client.js";
 import { ADD_SUB_ISSUE } from "./mutations.js";
@@ -80,20 +81,20 @@ export async function upsertIssue(gh: GitHubClient, spec: IssueSpec): Promise<Up
     OPERATIONAL_LABELS.managed,
     ...(spec.extraLabels ?? []),
   ]);
-  const fullBody = withBouleBlock(spec.body, {
+  const meta = {
     kind: spec.kind,
     bouleId: spec.bouleId,
     ...(spec.parentBouleId ? { parent: spec.parentBouleId } : {}),
     runId: spec.runId,
     generatedBy: "boule",
-  });
-  const hash = contentHash(spec.body);
+  };
 
   const existing = await listByLabel(gh, spec.owner, spec.name, dedupe);
 
   if (existing.length === 0) {
+    const hash = contentHash(spec.body);
     if (spec.dryRun) return { action: "create", fingerprint: hash, ref: DRY_REF };
-    let created = await createIssue(gh, spec, fullBody, labels);
+    let created = await createIssue(gh, spec, withBouleBlock(spec.body, meta), labels);
     created = await reconcile(gh, spec.owner, spec.name, dedupe, spec.runId, created);
     await maybeLinkParent(gh, spec, created.nodeId);
     return {
@@ -105,6 +106,12 @@ export async function upsertIssue(gh: GitHubClient, spec: IssueSpec): Promise<Up
 
   const canonical = lowest(existing);
   const ref: IssueRef = { number: canonical.number, nodeId: canonical.nodeId, url: canonical.url };
+  // Carry human resolutions forward: a re-run regenerates the body from the brief (re-opening answered
+  // OQs, dropping the Decisions section) — merge the existing resolved state back in before hashing so
+  // `boule resolve` edits survive and a clean re-run still converges to a no-op.
+  const mergedBody = preserveResolutions(spec.body, canonical.body);
+  const fullBody = withBouleBlock(mergedBody, meta);
+  const hash = contentHash(mergedBody);
   const prev = parseBouleBlock(canonical.body);
   if (prev?.contentHash === hash) return { action: "noop", fingerprint: hash, ref };
 
