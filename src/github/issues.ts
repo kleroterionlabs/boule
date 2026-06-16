@@ -4,7 +4,7 @@ import { OPERATIONAL_LABELS, kindLabel } from "../core/taxonomy.js";
 // exact-match) — NOT issue search, which is tokenized full-text + eventually consistent and would
 // let duplicates slip through. A create-then-reconcile pass converges concurrent races.
 import type { ArtifactKind, IssueRef, UpsertResult } from "../core/types.js";
-import { preserveResolutions } from "../quality/openQuestions.js";
+import { parseOpenQuestions, preserveResolutions } from "../quality/openQuestions.js";
 import { contentHash, idLabel, parseBouleBlock, withBouleBlock } from "../util/idempotency.js";
 import type { GitHubClient } from "./client.js";
 import { ADD_SUB_ISSUE } from "./mutations.js";
@@ -59,6 +59,49 @@ export async function isHalted(gh: GitHubClient, owner: string, name: string): P
     o.issues.listForRepo({ owner, repo: name, labels: OPERATIONAL_LABELS.halt, state: "open", per_page: 1 }),
   );
   return res.data.length > 0;
+}
+
+/** A managed artifact that still has unresolved Open Questions (for no-arg `boule resolve`). */
+export interface OpenQuestionArtifact {
+  number: number;
+  url: string;
+  body: string;
+  title: string;
+  bouleId: string | null; // null only for legacy issues missing a boule block
+  openCount: number;
+}
+
+/** Open managed issues that still have unresolved Open Questions, lowest issue number first. */
+export async function listOpenQuestionArtifacts(
+  gh: GitHubClient,
+  owner: string,
+  name: string,
+): Promise<OpenQuestionArtifact[]> {
+  const res = await gh.withRest("read", (o) =>
+    o.issues.listForRepo({
+      owner,
+      repo: name,
+      labels: OPERATIONAL_LABELS.managed,
+      state: "open",
+      per_page: 100,
+    }),
+  );
+  const out: OpenQuestionArtifact[] = [];
+  for (const i of res.data) {
+    if (i.pull_request) continue;
+    const body = i.body ?? "";
+    const openCount = parseOpenQuestions(body).length;
+    if (openCount === 0) continue;
+    out.push({
+      number: i.number,
+      url: i.html_url,
+      body,
+      title: i.title,
+      bouleId: parseBouleBlock(body)?.bouleId ?? null,
+      openCount,
+    });
+  }
+  return out.sort((a, b) => a.number - b.number);
 }
 
 /** Resolve an existing artifact issue by its boule-id (canonical = lowest number). */

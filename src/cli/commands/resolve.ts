@@ -5,7 +5,7 @@ import type { Command } from "commander";
 import { resolveAuth } from "../../config/auth.js";
 import { type CliFlags, loadConfig } from "../../config/load.js";
 import { createGitHubClient } from "../../github/client.js";
-import { findByBouleId } from "../../github/issues.js";
+import { type OpenQuestionArtifact, findByBouleId, listOpenQuestionArtifacts } from "../../github/issues.js";
 import { gatherCommentAnswers, persistResolutions } from "../../github/oqResolution.js";
 import { createLogger } from "../../observability/logger.js";
 import { type Resolution, parseOpenQuestions } from "../../quality/openQuestions.js";
@@ -15,10 +15,11 @@ const collect = (v: string, acc: string[]): string[] => [...acc, v];
 
 export function registerResolve(program: Command): void {
   program
-    .command("resolve <bouleId>")
+    .command("resolve [bouleId]")
     .description(
-      "Answer an artifact's Open Questions and record the decisions in the issue. Interactive by " +
-        "default; --set for scripting; --from-comments ingests answers left by write/admin collaborators.",
+      "Answer an artifact's Open Questions and record the decisions in the issue. Omit the boule-id to " +
+        "pick from artifacts that still have Open Questions. Interactive by default; --set for scripting; " +
+        "--from-comments ingests answers left by write/admin collaborators.",
     )
     .option(
       "--set <oq=answer>",
@@ -27,86 +28,152 @@ export function registerResolve(program: Command): void {
       [],
     )
     .option("--from-comments", "ingest OQ answers from issue comments by write/admin collaborators", false)
-    .action(async (bouleId: string, local: { set: string[]; fromComments?: boolean }, cmd: Command) => {
-      const global = globals(cmd);
-      const cfg = loadConfig({ cwd: process.cwd(), env: process.env, cli: global as CliFlags });
-      const [owner, name] = cfg.repo.split("/") as [string, string];
-      const log = createLogger(cfg, `resolve-${bouleId}`);
-      const gh = await createGitHubClient(resolveAuth(process.env), log);
+    .action(
+      async (bouleId: string | undefined, local: { set: string[]; fromComments?: boolean }, cmd: Command) => {
+        const global = globals(cmd);
+        const cfg = loadConfig({ cwd: process.cwd(), env: process.env, cli: global as CliFlags });
+        const [owner, name] = cfg.repo.split("/") as [string, string];
+        const log = createLogger(cfg, `resolve-${bouleId ?? "pick"}`);
+        const gh = await createGitHubClient(resolveAuth(process.env), log);
 
-      const json = Boolean(global.json);
-      const emit = (obj: unknown, text: string, exit?: number): void => {
-        if (json) process.stdout.write(`${JSON.stringify(obj)}\n`);
-        else (exit ? process.stderr : process.stdout).write(`${text}\n`);
-        if (exit) process.exitCode = exit;
-      };
+        const json = Boolean(global.json);
+        const emit = (obj: unknown, text: string, exit?: number): void => {
+          if (json) process.stdout.write(`${JSON.stringify(obj)}\n`);
+          else (exit ? process.stderr : process.stdout).write(`${text}\n`);
+          if (exit) process.exitCode = exit;
+        };
 
-      const issue = await findByBouleId(gh, owner, name, bouleId);
-      if (!issue) {
-        emit({ ok: false, reason: "no-issue", bouleId }, `No issue found for boule-id "${bouleId}".`, 2);
-        return;
-      }
-      const open = parseOpenQuestions(issue.body);
-      const openIds = new Set(open.map((q) => q.id));
-      if (open.length === 0) {
-        emit(
-          { ok: true, reason: "no-open-questions", number: issue.number, applied: [] },
-          `#${issue.number} has no unresolved Open Questions.`,
-        );
-        return;
-      }
+        // Resolve the target issue: by boule-id when given, else discover & prompt.
+        let issue: { number: number; url: string; body: string } | null;
+        if (bouleId) {
+          issue = await findByBouleId(gh, owner, name, bouleId);
+          if (!issue) {
+            emit({ ok: false, reason: "no-issue", bouleId }, `No issue found for boule-id "${bouleId}".`, 2);
+            return;
+          }
+        } else {
+          // No-arg discovery only makes sense interactively; --set/--from-comments need a specific issue.
+          if (local.fromComments || local.set.length > 0) {
+            emit(
+              { ok: false, reason: "need-boule-id" },
+              "Specify a boule-id when using --set or --from-comments.",
+              2,
+            );
+            return;
+          }
+          if (json || !process.stdin.isTTY) {
+            emit(
+              { ok: false, reason: "need-boule-id" },
+              "No boule-id given. Pass one, or run in an interactive terminal to pick one.",
+              2,
+            );
+            return;
+          }
+          const candidates = await listOpenQuestionArtifacts(gh, owner, name);
+          if (candidates.length === 0) {
+            emit(
+              { ok: true, reason: "no-open-questions", applied: [] },
+              "No artifacts have unresolved Open Questions.",
+            );
+            return;
+          }
+          issue = await pickArtifact(candidates);
+          if (!issue) {
+            emit({ ok: true, reason: "cancelled", applied: [] }, "Nothing selected.");
+            return;
+          }
+        }
 
-      // Explicit sources can be combined (later answers win via dedupeById); otherwise prompt.
-      const explicit = local.fromComments || local.set.length > 0;
-      let resolutions: Resolution[] = [];
-      if (local.fromComments)
-        resolutions.push(...(await fromComments(gh, owner, name, issue.number, openIds)));
-      if (local.set.length > 0) resolutions.push(...fromSet(local.set, openIds));
-      if (!explicit) {
-        if (!process.stdin.isTTY) {
+        const open = parseOpenQuestions(issue.body);
+        const openIds = new Set(open.map((q) => q.id));
+        if (open.length === 0) {
           emit(
-            { ok: false, reason: "no-input" },
-            "No answers provided and stdin is not interactive. Use --set OQ#=answer or --from-comments.",
-            2,
+            { ok: true, reason: "no-open-questions", number: issue.number, applied: [] },
+            `#${issue.number} has no unresolved Open Questions.`,
           );
           return;
         }
-        resolutions = await interactive(open);
-      }
 
-      resolutions = dedupeById(resolutions);
-      if (resolutions.length === 0) {
-        // An explicit but fully-skipped/unauthorized/typo'd request is a failure, not a silent success.
-        emit(
-          { ok: !explicit, reason: "no-answers", applied: [] },
-          "No answers to apply.",
-          explicit ? 2 : undefined,
-        );
-        return;
-      }
+        // Explicit sources can be combined (later answers win via dedupeById); otherwise prompt.
+        const explicit = local.fromComments || local.set.length > 0;
+        let resolutions: Resolution[] = [];
+        if (local.fromComments)
+          resolutions.push(...(await fromComments(gh, owner, name, issue.number, openIds)));
+        if (local.set.length > 0) resolutions.push(...fromSet(local.set, openIds));
+        if (!explicit) {
+          if (!process.stdin.isTTY) {
+            emit(
+              { ok: false, reason: "no-input" },
+              "No answers provided and stdin is not interactive. Use --set OQ#=answer or --from-comments.",
+              2,
+            );
+            return;
+          }
+          resolutions = await interactive(open);
+        }
 
-      const today = new Date().toISOString().slice(0, 10);
-      const result = await persistResolutions(gh, {
-        owner,
-        name,
-        number: issue.number,
-        url: issue.url,
-        body: issue.body,
-        resolutions,
-        today,
-        dryRun: cfg.flags.dryRun,
-      });
+        resolutions = dedupeById(resolutions);
+        if (resolutions.length === 0) {
+          // An explicit but fully-skipped/unauthorized/typo'd request is a failure, not a silent success.
+          emit(
+            { ok: !explicit, reason: "no-answers", applied: [] },
+            "No answers to apply.",
+            explicit ? 2 : undefined,
+          );
+          return;
+        }
 
-      if (json) {
-        process.stdout.write(`${JSON.stringify({ ...result, ok: true, dryRun: cfg.flags.dryRun })}\n`);
-        return;
-      }
-      const verb = cfg.flags.dryRun ? "Would resolve" : "Resolved";
-      const lines = [`${verb} ${result.applied.length} question(s) on #${issue.number} — ${issue.url}`];
-      for (const r of result.applied) lines.push(`  ${r.id}: ${r.answer}`);
-      if (!cfg.flags.dryRun) lines.push("Run `boule sync` to reconcile any downstream artifacts.");
-      process.stdout.write(`${lines.join("\n")}\n`);
+        const today = new Date().toISOString().slice(0, 10);
+        const result = await persistResolutions(gh, {
+          owner,
+          name,
+          number: issue.number,
+          url: issue.url,
+          body: issue.body,
+          resolutions,
+          today,
+          dryRun: cfg.flags.dryRun,
+        });
+
+        if (json) {
+          process.stdout.write(`${JSON.stringify({ ...result, ok: true, dryRun: cfg.flags.dryRun })}\n`);
+          return;
+        }
+        const verb = cfg.flags.dryRun ? "Would resolve" : "Resolved";
+        const lines = [`${verb} ${result.applied.length} question(s) on #${issue.number} — ${issue.url}`];
+        for (const r of result.applied) lines.push(`  ${r.id}: ${r.answer}`);
+        if (!cfg.flags.dryRun) lines.push("Run `boule sync` to reconcile any downstream artifacts.");
+        process.stdout.write(`${lines.join("\n")}\n`);
+      },
+    );
+}
+
+/** List artifacts with Open Questions and let the user choose one (auto-selects a sole candidate). */
+async function pickArtifact(candidates: OpenQuestionArtifact[]): Promise<OpenQuestionArtifact | null> {
+  if (candidates.length === 1) {
+    const c = candidates[0] as OpenQuestionArtifact;
+    process.stdout.write(`Resolving Open Questions on #${c.number} — ${c.title}\n`);
+    return c;
+  }
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    process.stdout.write("Artifacts with unresolved Open Questions:\n");
+    candidates.forEach((c, i) => {
+      const id = c.bouleId ? ` [${c.bouleId}]` : "";
+      const n = c.openCount === 1 ? "1 question" : `${c.openCount} questions`;
+      process.stdout.write(`  ${i + 1}. #${c.number} ${c.title} (${n})${id}\n`);
     });
+    const ans = (await rl.question(`\nSelect 1-${candidates.length} (blank to cancel): `)).trim();
+    if (!ans) return null;
+    const idx = Number.parseInt(ans, 10) - 1;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= candidates.length) {
+      process.stderr.write("Invalid selection.\n");
+      return null;
+    }
+    return candidates[idx] as OpenQuestionArtifact;
+  } finally {
+    rl.close();
+  }
 }
 
 async function interactive(open: { id: string; text: string }[]): Promise<Resolution[]> {
