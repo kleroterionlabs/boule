@@ -11,6 +11,7 @@ import { registerDoctor } from "./commands/doctor.js";
 import { registerGap } from "./commands/gap.js";
 import { registerInit } from "./commands/init.js";
 import { registerPlan } from "./commands/plan.js";
+import { registerRefine } from "./commands/refine.js";
 import { registerRequirements } from "./commands/requirements.js";
 import { registerResume } from "./commands/resume.js";
 import { registerRuns } from "./commands/runs.js";
@@ -46,6 +47,7 @@ export function buildProgram(): Command {
     registerCompete,
     registerGap,
     registerPlan,
+    registerRefine,
     registerSync,
     registerTriage,
     registerStatus,
