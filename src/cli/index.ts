@@ -1,7 +1,10 @@
 // src/cli/index.ts — thin adapter: parse argv → build a workflow request → call a command handler.
 import { Command } from "commander";
+import { getVersion } from "../util/version.js";
+import { registerAuth } from "./commands/auth.js";
 import { registerBootstrap } from "./commands/bootstrap.js";
 import { registerCompete } from "./commands/compete.js";
+import { registerConfig } from "./commands/config.js";
 import { registerDaily } from "./commands/daily.js";
 import { registerDesign } from "./commands/design.js";
 import { registerDoctor } from "./commands/doctor.js";
@@ -9,17 +12,19 @@ import { registerGap } from "./commands/gap.js";
 import { registerInit } from "./commands/init.js";
 import { registerPlan } from "./commands/plan.js";
 import { registerRequirements } from "./commands/requirements.js";
+import { registerRuns } from "./commands/runs.js";
 import { registerStatus } from "./commands/status.js";
 import { registerSync } from "./commands/sync.js";
 import { registerTriage } from "./commands/triage.js";
 import { registerUndo } from "./commands/undo.js";
+import { registerVersion } from "./commands/version.js";
 
 export function buildProgram(): Command {
   const program = new Command();
   program
     .name("boule")
     .description("Autonomous PM/program-manager/analyst on GitHub, powered by the Claude Agent SDK.")
-    .version("0.0.0")
+    .version(getVersion())
     // global control flags (read by command handlers via program.optsWithGlobals())
     .option("--repo <owner/repo>", "target repository")
     .option("--project <number>", "target Projects v2 number", (v) => Number(v))
@@ -45,6 +50,10 @@ export function buildProgram(): Command {
     registerStatus,
     registerDaily,
     registerUndo,
+    registerRuns,
+    registerConfig,
+    registerAuth,
+    registerVersion,
   ]) {
     register(program);
   }
