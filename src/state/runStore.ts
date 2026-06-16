@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { join } from "node:path";
 import type { AgentRunResult } from "../core/types.js";
 import type { Ledger, LedgerEntry } from "../observability/ledger.js";
+import type { UndoReport } from "./undo.js";
 
 const RUNS_ROOT = join(".boule", "runs");
 
@@ -37,6 +38,17 @@ export function loadReport(runId: string): AgentRunResult | null {
   const path = join(runDir(runId), "report.json");
   if (!existsSync(path)) return null;
   return JSON.parse(readFileSync(path, "utf8")) as AgentRunResult;
+}
+
+/** Record that a run was reversed, so `runs` can flag it. */
+export function persistUndo(runId: string, report: UndoReport): void {
+  const dir = runDir(runId);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "undo.json"), `${JSON.stringify(report, null, 2)}\n`);
+}
+
+export function isUndone(runId: string): boolean {
+  return existsSync(join(runDir(runId), "undo.json"));
 }
 
 /** Run ids on disk, newest first (ULIDs sort lexicographically by time). */

@@ -12,6 +12,7 @@ import { registerRequirements } from "./commands/requirements.js";
 import { registerStatus } from "./commands/status.js";
 import { registerSync } from "./commands/sync.js";
 import { registerTriage } from "./commands/triage.js";
+import { registerUndo } from "./commands/undo.js";
 
 export function buildProgram(): Command {
   const program = new Command();
@@ -43,6 +44,7 @@ export function buildProgram(): Command {
     registerTriage,
     registerStatus,
     registerDaily,
+    registerUndo,
   ]) {
     register(program);
   }

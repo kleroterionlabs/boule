@@ -22,6 +22,22 @@ mutation AddSubIssue($issueId: ID!, $subIssueId: ID!) {
   addSubIssue(input: { issueId: $issueId, subIssueId: $subIssueId }) { subIssue { number } }
 }`;
 
+// ── undo / reversal ───────────────────────────────────────────────────────────
+export const CLOSE_ISSUE = /* GraphQL */ `
+mutation CloseIssue($id: ID!) {
+  closeIssue(input: { issueId: $id, stateReason: NOT_PLANNED }) { issue { number } }
+}`;
+
+export const DELETE_DISCUSSION = /* GraphQL */ `
+mutation DeleteDiscussion($id: ID!) {
+  deleteDiscussion(input: { id: $id }) { discussion { number } }
+}`;
+
+export const DELETE_PROJECT_ITEM = /* GraphQL */ `
+mutation DeleteProjectItem($projectId: ID!, $itemId: ID!) {
+  deleteProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) { deletedItemId }
+}`;
+
 export const ADD_COMMENT = /* GraphQL */ `
 mutation AddComment($subjectId: ID!, $body: String!) {
   addComment(input: { subjectId: $subjectId, body: $body }) { commentEdge { node { id } } }
