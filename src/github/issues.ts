@@ -61,6 +61,84 @@ export async function isHalted(gh: GitHubClient, owner: string, name: string): P
   return res.data.length > 0;
 }
 
+/** A lightweight issue summary for enumeration/triage (no body — keep payloads small). */
+export interface IssueSummary {
+  number: number;
+  title: string;
+  url: string;
+  state: string;
+  labels: string[];
+  kind: ArtifactKind | null; // boule block kind, else the `kind:` label, else null
+  bouleId: string | null; // null for non-boule issues
+  managed: boolean; // carries the boule:managed label
+  updatedAt: string;
+}
+
+export interface ListIssuesOptions {
+  labels?: string[]; // AND semantics (GitHub returns issues carrying ALL listed labels)
+  state?: "open" | "closed" | "all";
+  since?: string; // ISO-8601; only issues updated on/after
+  max?: number; // cap on returned issues (default 200)
+}
+
+const kindFromLabels = (labels: string[]): ArtifactKind | null => {
+  const l = labels.find((x) => x.startsWith("kind:"));
+  return l ? (l.slice("kind:".length) as ArtifactKind) : null;
+};
+
+/** Enumerate repository issues (paginated, capped). `truncated` is true if more exist beyond `max`. */
+export async function listIssues(
+  gh: GitHubClient,
+  owner: string,
+  name: string,
+  opts: ListIssuesOptions = {},
+): Promise<{ issues: IssueSummary[]; truncated: boolean }> {
+  const max = opts.max ?? 200;
+  const perPage = 100;
+  const issues: IssueSummary[] = [];
+  let page = 1;
+  let truncated = false;
+
+  while (issues.length < max) {
+    const res = await gh.withRest("read", (o) =>
+      o.issues.listForRepo({
+        owner,
+        repo: name,
+        state: opts.state ?? "open",
+        ...(opts.labels?.length ? { labels: opts.labels.join(",") } : {}),
+        ...(opts.since ? { since: opts.since } : {}),
+        per_page: perPage,
+        page,
+      }),
+    );
+    for (const i of res.data) {
+      if (i.pull_request) continue;
+      if (issues.length >= max) {
+        truncated = true;
+        break;
+      }
+      const labels = (i.labels ?? [])
+        .map((l) => (typeof l === "string" ? l : (l.name ?? "")))
+        .filter(Boolean);
+      const block = parseBouleBlock(i.body ?? "");
+      issues.push({
+        number: i.number,
+        title: i.title,
+        url: i.html_url,
+        state: i.state,
+        labels,
+        kind: block?.kind ?? kindFromLabels(labels),
+        bouleId: block?.bouleId ?? null,
+        managed: labels.includes(OPERATIONAL_LABELS.managed),
+        updatedAt: i.updated_at,
+      });
+    }
+    if (truncated || res.data.length < perPage) break; // capped or last page
+    page += 1;
+  }
+  return { issues, truncated };
+}
+
 /** A managed artifact that still has unresolved Open Questions (for no-arg `boule resolve`). */
 export interface OpenQuestionArtifact {
   number: number;

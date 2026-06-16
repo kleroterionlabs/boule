@@ -3,7 +3,7 @@ import pino from "pino";
 import { describe, expect, it } from "vitest";
 import type { AuthConfig } from "../../src/config/auth.js";
 import { createGitHubClient } from "../../src/github/client.js";
-import { listOpenQuestionArtifacts, upsertIssue } from "../../src/github/issues.js";
+import { listIssues, listOpenQuestionArtifacts, upsertIssue } from "../../src/github/issues.js";
 import { idLabel, withBouleBlock } from "../../src/util/idempotency.js";
 import { server } from "../setup.js";
 
@@ -78,6 +78,77 @@ describe("upsertIssue (label-based dedup)", () => {
     const res = await upsertIssue(gh, spec({ dryRun: true }));
     expect(res.action).toBe("create");
     expect(res.ref.url).toBe("(dry-run)");
+  });
+});
+
+describe("listIssues", () => {
+  const issue = (over: Record<string, unknown>) => ({
+    number: 1,
+    node_id: "I_1",
+    html_url: "https://github.com/acme/widgets/issues/1",
+    title: "Issue",
+    state: "open",
+    labels: [],
+    body: "",
+    updated_at: "2026-06-16T00:00:00Z",
+    ...over,
+  });
+
+  it("summarizes issues, skips PRs, and derives kind/boule-id from block or label", async () => {
+    const body = withBouleBlock("A design", {
+      kind: "design",
+      bouleId: "design:foo",
+      generatedBy: "boule",
+    });
+    server.use(
+      http.get(ISSUES, () =>
+        HttpResponse.json([
+          issue({ number: 1, body, labels: [{ name: "boule:managed" }], title: "From block" }),
+          issue({ number: 2, labels: [{ name: "kind:task" }], title: "From label" }),
+          issue({ number: 3, pull_request: { url: "x" }, title: "A PR" }),
+        ]),
+      ),
+    );
+    const gh = await createGitHubClient(auth, log);
+    const { issues, truncated } = await listIssues(gh, "acme", "widgets");
+    expect(truncated).toBe(false);
+    expect(issues.map((i) => i.number)).toEqual([1, 2]); // PR excluded
+    expect(issues[0]).toMatchObject({ kind: "design", bouleId: "design:foo", managed: true });
+    expect(issues[1]).toMatchObject({ kind: "task", bouleId: null, managed: false });
+  });
+
+  it("caps at max and reports truncation", async () => {
+    server.use(
+      http.get(ISSUES, () => HttpResponse.json([1, 2, 3].map((n) => issue({ number: n, title: `#${n}` })))),
+    );
+    const gh = await createGitHubClient(auth, log);
+    const { issues, truncated } = await listIssues(gh, "acme", "widgets", { max: 2 });
+    expect(issues).toHaveLength(2);
+    expect(truncated).toBe(true);
+  });
+
+  it("forwards state/labels/since as query params", async () => {
+    const query: Record<string, string | null> = {};
+    server.use(
+      http.get(ISSUES, ({ request }) => {
+        const p = new URL(request.url).searchParams;
+        query.state = p.get("state");
+        query.labels = p.get("labels");
+        query.since = p.get("since");
+        return HttpResponse.json([]);
+      }),
+    );
+    const gh = await createGitHubClient(auth, log);
+    await listIssues(gh, "acme", "widgets", {
+      state: "all",
+      labels: ["boule:managed", "kind:task"],
+      since: "2026-01-01T00:00:00Z",
+    });
+    expect(query).toEqual({
+      state: "all",
+      labels: "boule:managed,kind:task",
+      since: "2026-01-01T00:00:00Z",
+    });
   });
 });
 

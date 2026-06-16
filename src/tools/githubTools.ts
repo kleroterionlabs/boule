@@ -2,11 +2,11 @@
 // (kind, boule-id, label/category names). The tool layer resolves names → node ids via RepoContext.
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import { ISSUE_TYPE_NAMES } from "../core/taxonomy.js";
+import { ISSUE_TYPE_NAMES, OPERATIONAL_LABELS, kindLabel } from "../core/taxonomy.js";
 import type { ProjectFieldValues } from "../core/types.js";
 import type { GitHubClient } from "../github/client.js";
 import { postDiscussion, upsertDiscussion } from "../github/discussions.js";
-import { findByBouleId, linkSubIssue, upsertIssue } from "../github/issues.js";
+import { findByBouleId, linkSubIssue, listIssues, upsertIssue } from "../github/issues.js";
 import { addItem, setItemFields } from "../github/projects.js";
 import type { RepoContext } from "../github/resolve.js";
 import type { Ledger } from "../observability/ledger.js";
@@ -59,6 +59,41 @@ export function createGithubMcpServer(ctx: ToolContext) {
             return ok(found ? { found: true, number: found.number, url: found.url } : { found: false });
           } catch (e) {
             return fail(`gh_find_issue error: ${String(e)}`);
+          }
+        },
+      ),
+
+      tool(
+        "gh_list_issues",
+        "Read-only: enumerate repository issues for triage/reconnaissance (there is no other way to " +
+          "list issues). Filter by state (open|closed|all, default open), a single label, kind " +
+          "(e.g. 'task'), managedOnly (boule-managed issues only), or since (ISO-8601 — only issues " +
+          "updated on/after). Filters combine with AND. Returns number, title, url, state, labels, kind, " +
+          "boule-id, managed flag and updatedAt — NOT bodies; fetch a body with gh_find_issue if needed. " +
+          "Results are capped at `max`; if `truncated` is true, narrow with filters.",
+        {
+          state: z.enum(["open", "closed", "all"]).default("open"),
+          label: z.string().optional(),
+          kind: KIND.optional(),
+          managedOnly: z.boolean().default(false),
+          since: z.string().optional().describe("ISO-8601; only issues updated on/after this time"),
+          max: z.number().int().positive().max(500).default(200),
+        },
+        async (args) => {
+          try {
+            const labels: string[] = [];
+            if (args.label) labels.push(args.label);
+            if (args.kind) labels.push(kindLabel(args.kind));
+            if (args.managedOnly) labels.push(OPERATIONAL_LABELS.managed);
+            const { issues, truncated } = await listIssues(gh, rc.owner, rc.name, {
+              state: args.state,
+              ...(labels.length ? { labels } : {}),
+              ...(args.since ? { since: args.since } : {}),
+              max: args.max,
+            });
+            return ok({ count: issues.length, truncated, issues });
+          } catch (e) {
+            return fail(`gh_list_issues error: ${String(e)}`);
           }
         },
       ),

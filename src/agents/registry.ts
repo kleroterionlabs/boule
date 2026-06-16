@@ -5,6 +5,7 @@ import type { Config } from "../config/schema.js";
 import { AGENT_SPECS } from "./prompts.generated.js";
 
 const FIND = "mcp__github__gh_find_issue";
+const LIST = "mcp__github__gh_list_issues";
 const WRITE_TOOLS = [
   "mcp__github__gh_upsert_issue",
   "mcp__github__gh_link_sub_issue",
@@ -18,13 +19,13 @@ const WRITE_TOOLS = [
  * prompt frontmatter is advisory.
  */
 const TOOLS_BY_KEY: Record<string, string[]> = {
-  "repo-scout": ["Read", "Grep", "Glob", FIND],
-  "product-designer": ["Read", "Grep", "Glob", "WebSearch", "WebFetch", FIND],
-  "requirements-engineer": ["Read", "Grep", "Glob", FIND],
-  "competitive-analyst": ["Read", "Grep", "WebSearch", "WebFetch", FIND],
-  "gap-analyst": ["Read", "Grep", "Glob", FIND],
-  "critic-reviewer": ["Read", "Grep", FIND],
-  "issue-project-manager": ["Read", FIND, ...WRITE_TOOLS],
+  "repo-scout": ["Read", "Grep", "Glob", FIND, LIST],
+  "product-designer": ["Read", "Grep", "Glob", "WebSearch", "WebFetch", FIND, LIST],
+  "requirements-engineer": ["Read", "Grep", "Glob", FIND, LIST],
+  "competitive-analyst": ["Read", "Grep", "WebSearch", "WebFetch", FIND, LIST],
+  "gap-analyst": ["Read", "Grep", "Glob", FIND, LIST],
+  "critic-reviewer": ["Read", "Grep", FIND, LIST],
+  "issue-project-manager": ["Read", FIND, LIST, ...WRITE_TOOLS],
 };
 
 /** Subagents the orchestrator may delegate to (everything except the orchestrator itself). */
