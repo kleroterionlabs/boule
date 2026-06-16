@@ -37,21 +37,28 @@ jobs:
       - run: npm test -- --coverage
       - run: npm run build
 
-      # Bump package.json, commit, and create the vX.Y.Z tag (only after all checks pass).
-      - name: Bump version and tag
+      # Bump package.json only (no commit/tag yet) so we can publish before touching git.
+      # biome reformats what `npm version` rewrites, keeping the committed file lint-clean.
+      - name: Bump version
         id: bump
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          new="$(npm version "${{ inputs.version }}" -m "release: v%s")"
+          new="$(npm version "${{ inputs.version }}" --no-git-tag-version)"
+          npx biome format --write package.json
           echo "tag=$new" >> "$GITHUB_OUTPUT"
 
-      - name: Push commit and tag
-        run: git push --follow-tags
-
+      # Publish first: if this fails, no tag or version-bump commit is left behind.
       - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Only after a successful publish: commit the bump, tag, and push.
+      - name: Commit, tag, and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "release: ${{ steps.bump.outputs.tag }}"
+          git tag "${{ steps.bump.outputs.tag }}"
+          git push --follow-tags
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
