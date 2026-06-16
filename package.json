@@ -28,7 +28,7 @@
     "node": ">=20.11"
   },
   "bin": {
-    "boule": "./dist/bin.js"
+    "boule": "dist/bin.js"
   },
   "exports": {
     ".": {
