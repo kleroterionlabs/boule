@@ -7,7 +7,7 @@ import { resolveAuth } from "../config/auth.js";
 import type { Config } from "../config/schema.js";
 import type { AgentRunResult } from "../core/types.js";
 import { createGitHubClient } from "../github/client.js";
-import { resolveRepoId } from "../github/nodeIds.js";
+import { buildRepoContext } from "../github/resolve.js";
 import { createLogger } from "../observability/logger.js";
 import { type ToolContext, createGithubMcpServer } from "../tools/githubTools.js";
 import { makeAuditHook, makeCanUseTool } from "../tools/guards.js";
@@ -25,14 +25,11 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
   const auth = resolveAuth(args.env);
   const gh = await createGitHubClient(auth, log);
 
-  const [owner, name] = args.cfg.repo.split("/") as [string, string];
-  const repositoryId = await resolveRepoId(gh, owner, name);
+  const rc = await buildRepoContext(gh, args.cfg, log);
 
   const toolCtx: ToolContext = {
     gh,
-    repo: args.cfg.repo,
-    repositoryId,
-    projectSchema: {},
+    rc,
     runId,
     dryRun: args.cfg.flags.dryRun,
     log,
@@ -56,7 +53,7 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
     settingSources: ["project"],
     systemPrompt: { type: "preset", preset: "claude_code", append: orchestratorPrompt() },
     permissionMode: "default",
-    allowedTools: ["Agent", "Read", "Glob", "Grep", "TodoWrite", "mcp__github__gh_search"],
+    allowedTools: ["Agent", "Read", "Glob", "Grep", "TodoWrite", "mcp__github__gh_find_issue"],
     mcpServers: { github: ghServer },
     agents: buildAgents(args.cfg),
     canUseTool: makeCanUseTool(guardState),

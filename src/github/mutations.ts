@@ -50,3 +50,18 @@ export const ADD_DISCUSSION_COMMENT = /* GraphQL */ `
 mutation AddDiscussionComment($discussionId: ID!, $body: String!, $replyTo: ID) {
   addDiscussionComment(input: { discussionId: $discussionId, body: $body, replyToId: $replyTo }) { comment { id url } }
 }`;
+
+// Single-select options REQUIRE name + color (enum) + description — omitting either is a schema error.
+export const CREATE_SELECT_FIELD = /* GraphQL */ `
+mutation CreateSelectField($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+  createProjectV2Field(input: { projectId: $projectId, dataType: SINGLE_SELECT, name: $name, singleSelectOptions: $options }) {
+    projectV2Field { ... on ProjectV2SingleSelectField { id name } }
+  }
+}`;
+
+export const CREATE_NUMBER_FIELD = /* GraphQL */ `
+mutation CreateNumberField($projectId: ID!, $name: String!) {
+  createProjectV2Field(input: { projectId: $projectId, dataType: NUMBER, name: $name }) {
+    projectV2Field { ... on ProjectV2Field { id name } }
+  }
+}`;

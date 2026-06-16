@@ -48,7 +48,14 @@ export async function createGitHubClient(
       },
     },
   });
-  const gql = octokitGraphql.defaults({ headers: { authorization: `token ${token}` } });
+  const gql = octokitGraphql.defaults({
+    headers: {
+      authorization: `token ${token}`,
+      // Opt into the issue-types + sub-issues GraphQL fields. Harmless once GA; required while
+      // either is in preview (without it, addSubIssue / issueType fields are rejected as unknown).
+      "GraphQL-Features": "issue_types,sub_issues",
+    },
+  });
 
   const limits: Record<OpKind, LimitFunction> = {
     read: pLimit(opts.readConcurrency ?? 8),

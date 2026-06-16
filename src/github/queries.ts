@@ -39,3 +39,12 @@ export const ORG_ISSUE_TYPES = /* GraphQL */ `
 query OrgTypes($org: String!) {
   organization(login: $org) { issueTypes(first: 25) { nodes { id name } } }
 }`;
+
+// Owner-agnostic: a Projects v2 board may belong to an Organization OR a User.
+export const PROJECT_BY_OWNER = /* GraphQL */ `
+query ProjectByOwner($login: String!, $number: Int!) {
+  repositoryOwner(login: $login) {
+    ... on Organization { projectV2(number: $number) { id } }
+    ... on User { projectV2(number: $number) { id } }
+  }
+}`;

@@ -14,6 +14,7 @@ const WRITE_TOOLS = new Set([
   "mcp__github__gh_upsert_issue",
   "mcp__github__gh_link_sub_issue",
   "mcp__github__gh_project_set_fields",
+  "mcp__github__gh_post_discussion",
 ]);
 
 export const isWrite = (name: string): boolean => WRITE_TOOLS.has(name);

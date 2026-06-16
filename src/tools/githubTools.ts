@@ -1,70 +1,79 @@
-// src/tools/githubTools.ts — agents never touch Octokit; they call these gated tools.
+// src/tools/githubTools.ts — agents never touch Octokit; they call these gated tools in human terms
+// (kind, boule-id, label/category names). The tool layer resolves names → node ids via RepoContext.
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import type { FieldRef } from "../core/types.js";
+import { ISSUE_TYPE_NAMES } from "../core/taxonomy.js";
+import type { ProjectFieldValues } from "../core/types.js";
 import type { GitHubClient } from "../github/client.js";
-import { linkSubIssue, searchByBouleId, upsertIssue } from "../github/issues.js";
+import { postDiscussion } from "../github/discussions.js";
+import { findByBouleId, linkSubIssue, upsertIssue } from "../github/issues.js";
 import { addItem, setItemFields } from "../github/projects.js";
+import type { RepoContext } from "../github/resolve.js";
 import type { Logger } from "../observability/logger.js";
 
 export interface ToolContext {
   gh: GitHubClient;
-  repo: string;
-  repositoryId: string;
-  projectId?: string;
-  projectSchema: Record<string, FieldRef>;
+  rc: RepoContext;
   runId: string;
   dryRun: boolean;
   log: Logger;
 }
 
+const KIND = z.enum(["design", "requirement", "competitor", "market", "gap", "epic", "feature", "task"]);
+
 const ok = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data) }],
-  structuredContent: data,
+  structuredContent: data as Record<string, unknown>,
 });
 const fail = (msg: string) => ({ isError: true, content: [{ type: "text" as const, text: msg }] });
 
-/** Build the in-process GitHub MCP server bound to a run's context. */
+/** Build the in-process GitHub MCP server bound to a run's resolved context. */
 export function createGithubMcpServer(ctx: ToolContext) {
+  const { gh, rc } = ctx;
+
   return createSdkMcpServer({
     name: "github",
     version: "1.0.0",
     tools: [
       tool(
-        "gh_search",
-        "Read-only search for an existing boule artifact issue by its boule-id.",
+        "gh_find_issue",
+        "Read-only: find an existing artifact issue by its stable boule-id. Use before creating to avoid duplicates.",
         { bouleId: z.string() },
         async (args) => {
           try {
-            return ok(await searchByBouleId(ctx.gh, ctx.repo, args.bouleId));
+            const found = await findByBouleId(gh, rc.owner, rc.name, args.bouleId);
+            return ok(found ? { found: true, number: found.number, url: found.url } : { found: false });
           } catch (e) {
-            return fail(`gh_search error: ${String(e)}`);
+            return fail(`gh_find_issue error: ${String(e)}`);
           }
         },
       ),
+
       tool(
         "gh_upsert_issue",
-        "Create or update a typed artifact issue, idempotent on boule-id.",
+        "Create or update a typed artifact issue, idempotent on boule-id. Pass a stable boule-id " +
+          "(e.g. 'design:passwordless-signin'). Optionally a parentBouleId to link it as a sub-issue.",
         {
-          kind: z.enum(["design", "requirement", "competitor", "market", "gap", "epic", "feature", "task"]),
-          bouleId: z.string(),
+          kind: KIND,
+          bouleId: z.string().describe("stable identity, e.g. 'requirement:auth-otp'"),
           title: z.string(),
-          body: z.string(),
-          labelIds: z.array(z.string()).default([]),
-          issueTypeId: z.string().optional(),
-          parent: z.string().optional(),
+          body: z.string().describe("GitHub-flavored markdown; do NOT include the boule metadata block"),
+          labels: z.array(z.string()).default([]),
+          parentBouleId: z.string().optional(),
         },
         async (args) => {
           try {
-            const res = await upsertIssue(ctx.gh, ctx.repo, {
-              repositoryId: ctx.repositoryId,
+            const typeName = ISSUE_TYPE_NAMES[args.kind as keyof typeof ISSUE_TYPE_NAMES];
+            const res = await upsertIssue(gh, {
+              owner: rc.owner,
+              name: rc.name,
               kind: args.kind,
               bouleId: args.bouleId,
               title: args.title,
               body: args.body,
-              labelIds: args.labelIds,
-              ...(args.issueTypeId !== undefined && { issueTypeId: args.issueTypeId }),
-              ...(args.parent !== undefined && { parent: args.parent }),
+              extraLabels: args.labels,
+              ...(typeName && rc.issueTypeNames.has(typeName) ? { typeName } : {}),
+              ...(args.parentBouleId ? { parentBouleId: args.parentBouleId } : {}),
               runId: ctx.runId,
               dryRun: ctx.dryRun,
             });
@@ -74,35 +83,76 @@ export function createGithubMcpServer(ctx: ToolContext) {
           }
         },
       ),
+
       tool(
         "gh_link_sub_issue",
-        "Link a child issue under a parent (native sub-issue).",
-        { parentNodeId: z.string(), childNodeId: z.string() },
+        "Link a child artifact under a parent as a native sub-issue (both referenced by boule-id).",
+        { parentBouleId: z.string(), childBouleId: z.string() },
         async (args) => {
           try {
-            if (!ctx.dryRun) await linkSubIssue(ctx.gh, args.parentNodeId, args.childNodeId);
-            return ok({ linked: true, dryRun: ctx.dryRun });
+            const [parent, child] = await Promise.all([
+              findByBouleId(gh, rc.owner, rc.name, args.parentBouleId),
+              findByBouleId(gh, rc.owner, rc.name, args.childBouleId),
+            ]);
+            if (!parent || !child) return fail("parent or child issue not found for the given boule-id(s)");
+            if (!ctx.dryRun) await linkSubIssue(gh, parent.nodeId, child.nodeId);
+            return ok({ linked: true, parent: parent.number, child: child.number, dryRun: ctx.dryRun });
           } catch (e) {
             return fail(`gh_link_sub_issue error: ${String(e)}`);
           }
         },
       ),
+
       tool(
         "gh_project_set_fields",
-        "Add an issue to the project (if needed) and set Status/Kind/Priority/RICE field values.",
-        {
-          issueNodeId: z.string(),
-          fields: z.record(z.union([z.string(), z.number()])),
-        },
+        "Add an artifact issue (by boule-id) to the Projects v2 board and set field values by name " +
+          "(e.g. Status, Kind, Priority, RICE).",
+        { bouleId: z.string(), fields: z.record(z.union([z.string(), z.number()])) },
         async (args) => {
           try {
-            if (!ctx.projectId) return fail("no project configured");
+            if (!rc.projectId) return fail("no Projects v2 board configured (set projectNumber)");
+            const issue = await findByBouleId(gh, rc.owner, rc.name, args.bouleId);
+            if (!issue) return fail(`no issue found for boule-id "${args.bouleId}"`);
             if (ctx.dryRun) return ok({ planned: args.fields, dryRun: true });
-            const itemId = await addItem(ctx.gh, ctx.projectId, args.issueNodeId);
-            await setItemFields(ctx.gh, ctx.projectId, itemId, ctx.projectSchema, args.fields);
+            const itemId = await addItem(gh, rc.projectId, issue.nodeId);
+            await setItemFields(
+              gh,
+              rc.projectId,
+              itemId,
+              rc.projectSchema,
+              args.fields as ProjectFieldValues,
+            );
             return ok({ itemId });
           } catch (e) {
             return fail(`gh_project_set_fields error: ${String(e)}`);
+          }
+        },
+      ),
+
+      tool(
+        "gh_post_discussion",
+        "Post a GitHub Discussion in a category (by name) — for agent collaboration/handoffs and the " +
+          "daily status update. The category must already exist (categories can't be created via API).",
+        { category: z.string(), title: z.string(), body: z.string() },
+        async (args) => {
+          try {
+            const cat = rc.categories.find((c) => c.name.toLowerCase() === args.category.toLowerCase());
+            if (!cat) {
+              return fail(
+                `discussion category "${args.category}" not found — create it in repo Settings → Discussions`,
+              );
+            }
+            if (ctx.dryRun) return ok({ planned: args.title, category: cat.name, dryRun: true });
+            const ref = await postDiscussion(gh, {
+              repoId: rc.repositoryId,
+              categoryId: cat.id,
+              title: args.title,
+              body: args.body,
+              dryRun: false,
+            });
+            return ok(ref);
+          } catch (e) {
+            return fail(`gh_post_discussion error: ${String(e)}`);
           }
         },
       ),

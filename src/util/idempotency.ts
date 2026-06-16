@@ -35,6 +35,16 @@ export function contentHash(body: string): Fingerprint {
   return `sha256:${hex.slice(0, 16)}` as Fingerprint;
 }
 
+/**
+ * A unique, deterministic label that identifies one artifact for strongly-consistent dedup.
+ * Hashed so it stays well under GitHub's 50-char label limit and avoids awkward characters,
+ * while the human-readable boule-id lives in the body block. Same boule-id ⇒ same label.
+ */
+export function idLabel(bouleId: string): string {
+  const hex = createHash("sha256").update(bouleId, "utf8").digest("hex");
+  return `boule-id-${hex.slice(0, 12)}`;
+}
+
 export function renderBouleBlock(b: BouleBlock): string {
   const lines = [
     BOULE_BEGIN,
