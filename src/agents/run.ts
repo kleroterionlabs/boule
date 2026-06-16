@@ -2,9 +2,11 @@
 import { type Options, query } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentRunResult, StopReason } from "../core/types.js";
 import { CostMeter } from "../observability/cost.js";
+import { emptyMetrics } from "../observability/ledger.js";
 import type { Logger } from "../observability/logger.js";
 
 export interface RunArgs {
+  runId: string;
   prompt: string;
   options: Options;
   workflow: string;
@@ -40,10 +42,12 @@ export async function runAgent(args: RunArgs): Promise<AgentRunResult> {
 
   return {
     ok: stopReason === "success",
+    runId: args.runId,
     workflow: args.workflow,
-    artifactsPlanned: 0, // populated by the workflow from structuredContent
-    artifactsWritten: [],
+    artifactsPlanned: 0, // populated below from the ledger
+    artifactsWritten: [], // populated below from the ledger
     skippedDuplicates: [],
+    metrics: emptyMetrics(),
     costUsd: meter.totalUsd,
     modelUsage: meter.byModel(),
     numTurns,

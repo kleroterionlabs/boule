@@ -74,12 +74,25 @@ export type StopReason =
   | "error_during_execution"
   | "halted";
 
+/** Counts of GitHub mutations a run performed, derived from the ledger. */
+export interface RunMetrics {
+  issuesCreated: number;
+  issuesUpdated: number;
+  issuesNoop: number;
+  subIssuesLinked: number;
+  projectItems: number;
+  fieldSets: number;
+  discussionsPosted: number;
+}
+
 export interface AgentRunResult {
   ok: boolean;
+  runId: string;
   workflow: string;
   artifactsPlanned: number;
   artifactsWritten: IssueRef[];
   skippedDuplicates: string[]; // bouleIds
+  metrics: RunMetrics;
   costUsd: number;
   modelUsage: Record<string, { inputTokens: number; outputTokens: number; costUsd: number }>;
   numTurns: number;

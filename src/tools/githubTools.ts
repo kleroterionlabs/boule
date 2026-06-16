@@ -9,6 +9,7 @@ import { postDiscussion } from "../github/discussions.js";
 import { findByBouleId, linkSubIssue, upsertIssue } from "../github/issues.js";
 import { addItem, setItemFields } from "../github/projects.js";
 import type { RepoContext } from "../github/resolve.js";
+import type { Ledger } from "../observability/ledger.js";
 import type { Logger } from "../observability/logger.js";
 import { scrubSecrets } from "../util/secrets.js";
 
@@ -17,6 +18,7 @@ export interface ToolContext {
   rc: RepoContext;
   runId: string;
   dryRun: boolean;
+  ledger: Ledger;
   log: Logger;
 }
 
@@ -92,6 +94,16 @@ export function createGithubMcpServer(ctx: ToolContext) {
               runId: ctx.runId,
               dryRun: ctx.dryRun,
             });
+            if (!ctx.dryRun) {
+              ctx.ledger.record({
+                action: `issue.${res.action}`,
+                bouleId: args.bouleId,
+                number: res.ref.number,
+                nodeId: res.ref.nodeId,
+                url: res.ref.url,
+                hash: res.fingerprint,
+              });
+            }
             return ok(res);
           } catch (e) {
             return fail(`gh_upsert_issue error: ${String(e)}`); // NEVER throw ⇒ keeps query() loop alive
@@ -110,7 +122,16 @@ export function createGithubMcpServer(ctx: ToolContext) {
               findByBouleId(gh, rc.owner, rc.name, args.childBouleId),
             ]);
             if (!parent || !child) return fail("parent or child issue not found for the given boule-id(s)");
-            if (!ctx.dryRun) await linkSubIssue(gh, parent.nodeId, child.nodeId);
+            if (!ctx.dryRun) {
+              await linkSubIssue(gh, parent.nodeId, child.nodeId);
+              ctx.ledger.record({
+                action: "subissue.link",
+                bouleId: args.childBouleId,
+                number: child.number,
+                nodeId: child.nodeId,
+                url: child.url,
+              });
+            }
             return ok({ linked: true, parent: parent.number, child: child.number, dryRun: ctx.dryRun });
           } catch (e) {
             return fail(`gh_link_sub_issue error: ${String(e)}`);
@@ -137,6 +158,8 @@ export function createGithubMcpServer(ctx: ToolContext) {
               rc.projectSchema,
               args.fields as ProjectFieldValues,
             );
+            ctx.ledger.record({ action: "project.item", bouleId: args.bouleId, itemId });
+            ctx.ledger.record({ action: "project.field", bouleId: args.bouleId, itemId });
             return ok({ itemId });
           } catch (e) {
             return fail(`gh_project_set_fields error: ${String(e)}`);
@@ -167,6 +190,12 @@ export function createGithubMcpServer(ctx: ToolContext) {
               title: scrubSecrets(args.title).clean,
               body: body.clean,
               dryRun: false,
+            });
+            ctx.ledger.record({
+              action: "discussion.create",
+              number: ref.number,
+              nodeId: ref.nodeId,
+              url: ref.url,
             });
             return ok(ref);
           } catch (e) {

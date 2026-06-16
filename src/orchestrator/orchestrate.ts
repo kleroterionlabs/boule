@@ -9,7 +9,9 @@ import type { AgentRunResult } from "../core/types.js";
 import { createGitHubClient } from "../github/client.js";
 import { isHalted } from "../github/issues.js";
 import { buildRepoContext } from "../github/resolve.js";
+import { Ledger, emptyMetrics } from "../observability/ledger.js";
 import { createLogger } from "../observability/logger.js";
+import { persistRun } from "../state/runStore.js";
 import { type ToolContext, createGithubMcpServer } from "../tools/githubTools.js";
 import { makeAuditHook, makeCanUseTool } from "../tools/guards.js";
 
@@ -33,10 +35,12 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
     log.warn("boule:halt is active — aborting. Close the boule:halt issue to resume.");
     return {
       ok: false,
+      runId,
       workflow: args.workflow,
       artifactsPlanned: 0,
       artifactsWritten: [],
       skippedDuplicates: [],
+      metrics: emptyMetrics(),
       costUsd: 0,
       modelUsage: {},
       numTurns: 0,
@@ -45,11 +49,13 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
     };
   }
 
+  const ledger = new Ledger();
   const toolCtx: ToolContext = {
     gh,
     rc,
     runId,
     dryRun: args.cfg.flags.dryRun,
+    ledger,
     log,
   };
   const ghServer = createGithubMcpServer(toolCtx);
@@ -78,5 +84,16 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
     hooks: { PreToolUse: [{ matcher: "mcp__github__.*", hooks: [makeAuditHook(guardState)] }] },
   };
 
-  return runAgent({ prompt: args.prompt, options, workflow: args.workflow, log });
+  const result = await runAgent({ runId, prompt: args.prompt, options, workflow: args.workflow, log });
+
+  // Fold the mutation ledger into the result: real writes + their counts come from what happened,
+  // not from what an agent claimed. Persist a report unless this was a dry run (no writes to record).
+  result.metrics = ledger.metrics();
+  result.artifactsWritten = ledger.writtenRefs();
+  result.artifactsPlanned = result.artifactsWritten.length + result.skippedDuplicates.length;
+  if (!args.cfg.flags.dryRun) {
+    const reportPath = persistRun(runId, result, ledger);
+    log.info({ reportPath, metrics: result.metrics }, "run report written");
+  }
+  return result;
 }

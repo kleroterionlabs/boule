@@ -9,6 +9,7 @@ export function renderRunSummary(result: AgentRunResult, opts: { json: boolean }
 
   const out: string[] = [];
   out.push(`\n${result.ok ? "✓" : "✗"} boule ${result.workflow} — ${result.stopReason}`);
+  out.push(`  Run: ${result.runId}`);
 
   if (result.artifactsWritten.length) {
     out.push("  Issues:");
@@ -17,6 +18,15 @@ export function renderRunSummary(result: AgentRunResult, opts: { json: boolean }
   if (result.skippedDuplicates.length) {
     out.push(
       `  Skipped ${result.skippedDuplicates.length} existing (idempotent): ${result.skippedDuplicates.join(", ")}`,
+    );
+  }
+
+  const m = result.metrics;
+  const wrote = m.issuesCreated + m.issuesUpdated > 0 || m.discussionsPosted > 0;
+  if (wrote) {
+    out.push(
+      `  Wrote: ${m.issuesCreated} created, ${m.issuesUpdated} updated, ${m.issuesNoop} unchanged · ` +
+        `${m.subIssuesLinked} links · ${m.projectItems} board items · ${m.discussionsPosted} discussions`,
     );
   }
 
