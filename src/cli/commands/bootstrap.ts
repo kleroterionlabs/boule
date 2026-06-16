@@ -13,14 +13,18 @@ export function registerBootstrap(program: Command): void {
     .description(
       "Create labels, issue types, Project fields & Discussion categories in the target repo (idempotent).",
     )
-    .action(async (_local: unknown, cmd: Command) => {
+    .option("--create-project <title>", "create a new Projects v2 board (when no projectNumber is set)")
+    .action(async (local: { createProject?: string }, cmd: Command) => {
       const global = cmd.optsWithGlobals() as CliFlags & { json?: boolean };
       const cfg = loadConfig({ cwd: process.cwd(), env: process.env, cli: global });
       const log = createLogger(cfg, ulid());
       const auth = resolveAuth(process.env);
       const gh = await createGitHubClient(auth, log);
 
-      const report = await bootstrap(gh, cfg, log, { dryRun: cfg.flags.dryRun });
+      const report = await bootstrap(gh, cfg, log, {
+        dryRun: cfg.flags.dryRun,
+        ...(local.createProject ? { createProjectTitle: local.createProject } : {}),
+      });
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 
       if (report.manualActions.length) {

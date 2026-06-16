@@ -2,14 +2,7 @@
 // (compiled into prompts.generated.ts). Model tiering is config here, never in workflow logic.
 import type { AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
 import type { Config } from "../config/schema.js";
-import { AGENT_SPECS, type AgentModelId } from "./prompts.generated.js";
-
-/** The Agent SDK's AgentDefinition.model accepts tier aliases, not full model IDs. */
-const MODEL_ALIAS: Record<AgentModelId, "opus" | "sonnet" | "haiku"> = {
-  "claude-opus-4-8": "opus",
-  "claude-sonnet-4-6": "sonnet",
-  "claude-haiku-4-5": "haiku",
-};
+import { AGENT_SPECS } from "./prompts.generated.js";
 
 const FIND = "mcp__github__gh_find_issue";
 const WRITE_TOOLS = [
@@ -50,7 +43,10 @@ export function buildAgents(_cfg: Config): Record<string, AgentDefinition> {
     out[key] = {
       description: spec.description,
       prompt: spec.systemPrompt,
-      model: MODEL_ALIAS[spec.model] ?? "inherit",
+      // Pin the EXACT model id (e.g. claude-sonnet-4-6). The SDK's AgentDefinition type narrows
+      // `model` to tier aliases ('sonnet'|'opus'|'haiku'), and those aliases resolve to the
+      // 4.5-series — so we pass the full id (the runtime accepts it, as the top-level option does).
+      model: spec.model as unknown as AgentDefinition["model"],
       tools,
     };
   }

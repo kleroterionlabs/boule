@@ -48,3 +48,6 @@ query ProjectByOwner($login: String!, $number: Int!) {
     ... on User { projectV2(number: $number) { id } }
   }
 }`;
+
+export const OWNER_ID = /* GraphQL */ `
+query OwnerId($login: String!) { repositoryOwner(login: $login) { id } }`;

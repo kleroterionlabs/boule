@@ -10,17 +10,30 @@ import {
 import type { Logger } from "../observability/logger.js";
 import type { GitHubClient } from "./client.js";
 import { resolveCategories } from "./discussions.js";
-import { CREATE_ISSUE_TYPE, CREATE_NUMBER_FIELD, CREATE_SELECT_FIELD } from "./mutations.js";
-import { resolveProjectId } from "./nodeIds.js";
+import {
+  CREATE_ISSUE_TYPE,
+  CREATE_NUMBER_FIELD,
+  CREATE_PROJECT_V2,
+  CREATE_SELECT_FIELD,
+  LINK_PROJECT_V2,
+} from "./mutations.js";
+import { resolveProjectId, resolveRepoId } from "./nodeIds.js";
 import { readProjectSchema } from "./projects.js";
-import { ORG_ISSUE_TYPES } from "./queries.js";
+import { ORG_ISSUE_TYPES, OWNER_ID } from "./queries.js";
 
 export interface BootstrapReport {
   labels: { created: string[]; existed: string[] };
   issueTypes: { created: string[]; verified: string[]; missing: string[] };
+  project?: { number: number; url: string; created: boolean };
   projectFields: { created: string[]; existed: string[] };
   discussions: { verified: string[]; missing: string[] };
   manualActions: string[];
+}
+
+export interface BootstrapOptions {
+  dryRun: boolean;
+  /** Create a new Projects v2 board with this title (when no projectNumber is configured). */
+  createProjectTitle?: string;
 }
 
 const SELECT_COLORS = ["GRAY", "BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PURPLE", "PINK"];
@@ -56,7 +69,7 @@ export async function bootstrap(
   gh: GitHubClient,
   cfg: Config,
   log: Logger,
-  opts: { dryRun: boolean } = { dryRun: false },
+  opts: BootstrapOptions = { dryRun: false },
 ): Promise<BootstrapReport> {
   const [owner, name] = cfg.repo.split("/") as [string, string];
   const report: BootstrapReport = {
@@ -88,12 +101,20 @@ export async function bootstrap(
   // 3. Discussion categories — verify only (cannot be created via API).
   await verifyCategories(gh, owner, name, cfg, report);
 
-  // 4. Projects v2 fields — created via API when a board is configured.
+  // 4. Projects v2 board + fields.
+  let projectId: string | undefined;
   if (cfg.projectNumber) {
-    await ensureProjectFields(gh, owner, cfg.projectNumber, opts.dryRun, report);
+    projectId = await resolveProjectId(gh, owner, cfg.projectNumber);
+  } else if (opts.createProjectTitle && !opts.dryRun) {
+    projectId = await createProject(gh, owner, name, opts.createProjectTitle, report);
+  } else if (opts.createProjectTitle) {
+    report.manualActions.push(`Would create Projects v2 board "${opts.createProjectTitle}" (dry-run).`);
   } else {
-    report.manualActions.push("No projectNumber configured — skipped Projects v2 field bootstrap.");
+    report.manualActions.push(
+      "No projectNumber configured — set one or pass --create-project to provision a board.",
+    );
   }
+  if (projectId) await ensureProjectFields(gh, projectId, opts.dryRun, report);
 
   log.info({ report }, "bootstrap complete");
   return report;
@@ -177,14 +198,41 @@ async function verifyCategories(
   }
 }
 
-async function ensureProjectFields(
+/** Create a new Projects v2 board owned by the repo's owner and link it to the repo. */
+async function createProject(
   gh: GitHubClient,
   owner: string,
-  projectNumber: number,
+  name: string,
+  title: string,
+  report: BootstrapReport,
+): Promise<string> {
+  const ownerData = await gh.graphql<{ repositoryOwner: { id: string } | null }>("read", OWNER_ID, {
+    login: owner,
+  });
+  const ownerId = ownerData.repositoryOwner?.id;
+  if (!ownerId) throw new Error(`could not resolve owner id for "${owner}"`);
+
+  const created = await gh.graphql<{
+    createProjectV2: { projectV2: { id: string; number: number; url: string } };
+  }>("write", CREATE_PROJECT_V2, { ownerId, title });
+  const { id, number, url } = created.createProjectV2.projectV2;
+
+  const repositoryId = await resolveRepoId(gh, owner, name);
+  await gh.graphql("write", LINK_PROJECT_V2, { projectId: id, repositoryId });
+
+  report.project = { number, url, created: true };
+  report.manualActions.push(
+    `Created board #${number} — add \`projectNumber: ${number}\` to .boule/config.yaml.`,
+  );
+  return id;
+}
+
+async function ensureProjectFields(
+  gh: GitHubClient,
+  projectId: string,
   dryRun: boolean,
   report: BootstrapReport,
 ): Promise<void> {
-  const projectId = await resolveProjectId(gh, owner, projectNumber);
   const existing = await readProjectSchema(gh, projectId);
 
   const selects: Array<{ name: string; options: readonly string[] }> = [

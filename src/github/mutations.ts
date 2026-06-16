@@ -73,3 +73,17 @@ mutation CreateIssueType($ownerId: ID!, $name: String!, $color: IssueTypeColor, 
     issueType { id name }
   }
 }`;
+
+export const CREATE_PROJECT_V2 = /* GraphQL */ `
+mutation CreateProject($ownerId: ID!, $title: String!) {
+  createProjectV2(input: { ownerId: $ownerId, title: $title }) {
+    projectV2 { id number url }
+  }
+}`;
+
+export const LINK_PROJECT_V2 = /* GraphQL */ `
+mutation LinkProject($projectId: ID!, $repositoryId: ID!) {
+  linkProjectV2ToRepository(input: { projectId: $projectId, repositoryId: $repositoryId }) {
+    repository { id }
+  }
+}`;
