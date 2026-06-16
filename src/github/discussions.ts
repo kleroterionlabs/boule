@@ -2,8 +2,8 @@ import type { DiscussionRef } from "../core/types.js";
 import { BouleError } from "../util/errors.js";
 // src/github/discussions.ts — categories are NOT API-creatable; we resolve, fail-fast if missing.
 import type { GitHubClient } from "./client.js";
-import { ADD_DISCUSSION_COMMENT, CREATE_DISCUSSION } from "./mutations.js";
-import { DISCUSSION_CATEGORIES_QUERY, REPO_ID } from "./queries.js";
+import { ADD_DISCUSSION_COMMENT, CREATE_DISCUSSION, UPDATE_DISCUSSION } from "./mutations.js";
+import { DISCUSSIONS_IN_CATEGORY, DISCUSSION_CATEGORIES_QUERY, REPO_ID } from "./queries.js";
 
 export interface ResolvedCategory {
   id: string;
@@ -43,6 +43,58 @@ export async function postDiscussion(
     { repositoryId: args.repoId, categoryId: args.categoryId, title: args.title, body: args.body },
   );
   return data.createDiscussion.discussion;
+}
+
+/** Hidden marker embedded in a discussion body so we can re-find it (e.g. the daily status). */
+export function discussionMarker(key: string): string {
+  return `<!-- boule:discussion:${key} -->`;
+}
+
+/**
+ * Create-or-update a discussion identified by a stable `key` (e.g. "status:2026-06-15").
+ * Lists the category (strongly consistent) and matches on the embedded marker — so re-running
+ * the daily status edits the same thread instead of posting a duplicate.
+ */
+export async function upsertDiscussion(
+  gh: GitHubClient,
+  args: {
+    owner: string;
+    name: string;
+    repoId: string;
+    categoryId: string;
+    key: string;
+    title: string;
+    body: string;
+    dryRun: boolean;
+  },
+): Promise<{ ref: DiscussionRef; action: "create" | "update" }> {
+  const marker = discussionMarker(args.key);
+  const body = `${args.body}\n\n${marker}`;
+  if (args.dryRun) return { ref: { number: -1, nodeId: "", url: "(dry-run)" }, action: "create" };
+
+  const data = await gh.graphql<{
+    repository: { discussions: { nodes: (DiscussionRef & { body: string })[] } };
+  }>("read", DISCUSSIONS_IN_CATEGORY, {
+    owner: args.owner,
+    name: args.name,
+    categoryId: args.categoryId,
+  });
+  const existing = data.repository.discussions.nodes.find((d) => d.body.includes(marker));
+
+  if (existing) {
+    const upd = await gh.graphql<{ updateDiscussion: { discussion: DiscussionRef } }>(
+      "write",
+      UPDATE_DISCUSSION,
+      { discussionId: existing.nodeId, title: args.title, body },
+    );
+    return { ref: upd.updateDiscussion.discussion, action: "update" };
+  }
+  const created = await gh.graphql<{ createDiscussion: { discussion: DiscussionRef } }>(
+    "write",
+    CREATE_DISCUSSION,
+    { repositoryId: args.repoId, categoryId: args.categoryId, title: args.title, body },
+  );
+  return { ref: created.createDiscussion.discussion, action: "create" };
 }
 
 export async function addComment(

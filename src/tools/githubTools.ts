@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ISSUE_TYPE_NAMES } from "../core/taxonomy.js";
 import type { ProjectFieldValues } from "../core/types.js";
 import type { GitHubClient } from "../github/client.js";
-import { postDiscussion } from "../github/discussions.js";
+import { postDiscussion, upsertDiscussion } from "../github/discussions.js";
 import { findByBouleId, linkSubIssue, upsertIssue } from "../github/issues.js";
 import { addItem, setItemFields } from "../github/projects.js";
 import type { RepoContext } from "../github/resolve.js";
@@ -170,8 +170,11 @@ export function createGithubMcpServer(ctx: ToolContext) {
       tool(
         "gh_post_discussion",
         "Post a GitHub Discussion in a category (by name) — for agent collaboration/handoffs and the " +
-          "daily status update. The category must already exist (categories can't be created via API).",
-        { category: z.string(), title: z.string(), body: z.string() },
+          "daily status update. The category must already exist (categories can't be created via API). " +
+          "Pass `key` for an idempotent post (e.g. key='status:2026-06-15' for the daily status): a prior " +
+          "discussion with the same key is EDITED in place instead of duplicated. Omit `key` for an " +
+          "append-only post (each call creates a new thread, e.g. a one-off handoff).",
+        { category: z.string(), title: z.string(), body: z.string(), key: z.string().optional() },
         async (args) => {
           try {
             const cat = rc.categories.find((c) => c.name.toLowerCase() === args.category.toLowerCase());
@@ -180,14 +183,38 @@ export function createGithubMcpServer(ctx: ToolContext) {
                 `discussion category "${args.category}" not found — create it in repo Settings → Discussions`,
               );
             }
-            if (ctx.dryRun) return ok({ planned: args.title, category: cat.name, dryRun: true });
+            if (ctx.dryRun) {
+              return ok({ planned: args.title, category: cat.name, key: args.key, dryRun: true });
+            }
             const body = scrubSecrets(args.body);
             if (body.found.length)
               ctx.log.warn({ found: body.found }, "redacted secrets from discussion body");
+            const title = scrubSecrets(args.title).clean;
+
+            if (args.key) {
+              const { ref, action } = await upsertDiscussion(gh, {
+                owner: rc.owner,
+                name: rc.name,
+                repoId: rc.repositoryId,
+                categoryId: cat.id,
+                key: args.key,
+                title,
+                body: body.clean,
+                dryRun: false,
+              });
+              ctx.ledger.record({
+                action: action === "update" ? "discussion.update" : "discussion.create",
+                number: ref.number,
+                nodeId: ref.nodeId,
+                url: ref.url,
+              });
+              return ok({ ...ref, action });
+            }
+
             const ref = await postDiscussion(gh, {
               repoId: rc.repositoryId,
               categoryId: cat.id,
-              title: scrubSecrets(args.title).clean,
+              title,
               body: body.clean,
               dryRun: false,
             });
@@ -197,7 +224,7 @@ export function createGithubMcpServer(ctx: ToolContext) {
               nodeId: ref.nodeId,
               url: ref.url,
             });
-            return ok(ref);
+            return ok({ ...ref, action: "create" });
           } catch (e) {
             return fail(`gh_post_discussion error: ${String(e)}`);
           }

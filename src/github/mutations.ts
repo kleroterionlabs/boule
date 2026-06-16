@@ -46,6 +46,13 @@ mutation CreateDiscussion($repositoryId: ID!, $categoryId: ID!, $title: String!,
   }
 }`;
 
+export const UPDATE_DISCUSSION = /* GraphQL */ `
+mutation UpdateDiscussion($discussionId: ID!, $title: String!, $body: String!) {
+  updateDiscussion(input: { discussionId: $discussionId, title: $title, body: $body }) {
+    discussion { number nodeId: id url }
+  }
+}`;
+
 export const ADD_DISCUSSION_COMMENT = /* GraphQL */ `
 mutation AddDiscussionComment($discussionId: ID!, $body: String!, $replyTo: ID) {
   addDiscussionComment(input: { discussionId: $discussionId, body: $body, replyToId: $replyTo }) { comment { id url } }

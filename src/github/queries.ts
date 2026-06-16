@@ -35,6 +35,16 @@ query Categories($owner: String!, $name: String!) {
   }
 }`;
 
+// Strongly-consistent list (NOT search) — scan recent discussions in a category for a boule marker.
+export const DISCUSSIONS_IN_CATEGORY = /* GraphQL */ `
+query DiscussionsInCategory($owner: String!, $name: String!, $categoryId: ID!) {
+  repository(owner: $owner, name: $name) {
+    discussions(first: 25, categoryId: $categoryId, orderBy: { field: UPDATED_AT, direction: DESC }) {
+      nodes { number nodeId: id url body }
+    }
+  }
+}`;
+
 export const ORG_ISSUE_TYPES = /* GraphQL */ `
 query OrgTypes($org: String!) {
   organization(login: $org) { id issueTypes(first: 25) { nodes { id name } } }

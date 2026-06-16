@@ -9,7 +9,8 @@ export type LedgerAction =
   | "subissue.link"
   | "project.item"
   | "project.field"
-  | "discussion.create";
+  | "discussion.create"
+  | "discussion.update";
 
 export interface LedgerEntry {
   ts: string;
@@ -51,7 +52,7 @@ export class Ledger {
       subIssuesLinked: count("subissue.link"),
       projectItems: count("project.item"),
       fieldSets: count("project.field"),
-      discussionsPosted: count("discussion.create"),
+      discussionsPosted: count("discussion.create") + count("discussion.update"),
     };
   }
 
