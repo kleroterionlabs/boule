@@ -9,12 +9,16 @@ describe("Ledger", () => {
     l.record({ action: "issue.noop", bouleId: "design:c", number: 3 });
     l.record({ action: "subissue.link", number: 2 });
     l.record({ action: "discussion.create", number: 9, url: "d9" });
+    l.record({ action: "issue.close", bouleId: "design:d", number: 4 });
+    l.record({ action: "project.item.remove", itemId: "PI_1" });
 
     const m = l.metrics();
     expect(m.issuesCreated).toBe(1);
     expect(m.issuesUpdated).toBe(1);
     expect(m.issuesNoop).toBe(1);
+    expect(m.issuesClosed).toBe(1);
     expect(m.subIssuesLinked).toBe(1);
+    expect(m.projectItemsRemoved).toBe(1);
     expect(m.discussionsPosted).toBe(1);
   });
 

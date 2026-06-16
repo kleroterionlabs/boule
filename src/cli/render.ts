@@ -22,11 +22,14 @@ export function renderRunSummary(result: AgentRunResult, opts: { json: boolean }
   }
 
   const m = result.metrics;
-  const wrote = m.issuesCreated + m.issuesUpdated > 0 || m.discussionsPosted > 0;
+  const wrote =
+    m.issuesCreated + m.issuesUpdated + m.issuesClosed > 0 ||
+    m.discussionsPosted > 0 ||
+    m.projectItemsRemoved > 0;
   if (wrote) {
     out.push(
-      `  Wrote: ${m.issuesCreated} created, ${m.issuesUpdated} updated, ${m.issuesNoop} unchanged · ` +
-        `${m.subIssuesLinked} links · ${m.projectItems} board items · ${m.discussionsPosted} discussions`,
+      `  Wrote: ${m.issuesCreated} created, ${m.issuesUpdated} updated, ${m.issuesClosed} closed, ${m.issuesNoop} unchanged · ` +
+        `${m.subIssuesLinked} links · ${m.projectItems} board items (${m.projectItemsRemoved} removed) · ${m.discussionsPosted} discussions`,
     );
   }
 

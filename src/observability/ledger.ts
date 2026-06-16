@@ -30,8 +30,10 @@ export function emptyMetrics(): RunMetrics {
     issuesCreated: 0,
     issuesUpdated: 0,
     issuesNoop: 0,
+    issuesClosed: 0,
     subIssuesLinked: 0,
     projectItems: 0,
+    projectItemsRemoved: 0,
     fieldSets: 0,
     discussionsPosted: 0,
   };
@@ -58,8 +60,10 @@ export class Ledger {
       issuesCreated: count("issue.create"),
       issuesUpdated: count("issue.update"),
       issuesNoop: count("issue.noop"),
+      issuesClosed: count("issue.close"),
       subIssuesLinked: count("subissue.link"),
       projectItems: count("project.item"),
+      projectItemsRemoved: count("project.item.remove"),
       fieldSets: count("project.field"),
       discussionsPosted: count("discussion.create") + count("discussion.update"),
     };

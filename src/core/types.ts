@@ -79,8 +79,10 @@ export interface RunMetrics {
   issuesCreated: number;
   issuesUpdated: number;
   issuesNoop: number;
+  issuesClosed: number;
   subIssuesLinked: number;
   projectItems: number;
+  projectItemsRemoved: number;
   fieldSets: number;
   discussionsPosted: number;
 }

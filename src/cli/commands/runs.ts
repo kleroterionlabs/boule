@@ -26,7 +26,7 @@ export function registerRuns(program: Command): void {
         const out = [
           `\nRun ${report.runId}  (${report.workflow})${isUndone(runIdArg) ? "  [UNDONE]" : ""}`,
           `  Result: ${report.ok ? "✓" : "✗"} ${report.stopReason}   ${report.numTurns} turns   $${report.costUsd.toFixed(4)}`,
-          `  Wrote:  ${m.issuesCreated} created, ${m.issuesUpdated} updated, ${m.issuesNoop} unchanged · ${m.subIssuesLinked} links · ${m.projectItems} items · ${m.discussionsPosted} discussions`,
+          `  Wrote:  ${m.issuesCreated} created, ${m.issuesUpdated} updated, ${m.issuesClosed} closed, ${m.issuesNoop} unchanged · ${m.subIssuesLinked} links · ${m.projectItems} items (${m.projectItemsRemoved} removed) · ${m.discussionsPosted} discussions`,
         ];
         for (const ref of report.artifactsWritten) out.push(`    #${ref.number}  ${ref.url}`);
         if (report.errors.length) out.push(`  Errors: ${report.errors.length}`);
@@ -53,9 +53,9 @@ export function registerRuns(program: Command): void {
           continue;
         }
         const m = r.metrics;
-        const wrote = `${m.issuesCreated}c/${m.issuesUpdated}u`;
+        const wrote = `${m.issuesCreated}c/${m.issuesUpdated}u/${m.issuesClosed}x`;
         out.push(
-          `  ${id}  ${r.ok ? "✓" : "✗"} ${r.workflow.padEnd(12)} ${wrote.padStart(7)}  $${r.costUsd.toFixed(2)}${undo}`,
+          `  ${id}  ${r.ok ? "✓" : "✗"} ${r.workflow.padEnd(12)} ${wrote.padStart(10)}  $${r.costUsd.toFixed(2)}${undo}`,
         );
       }
       out.push("\nShow one: boule runs <runId>   ·   Reverse: boule undo <runId>");
