@@ -9,7 +9,7 @@ export function renderRunSummary(result: AgentRunResult, opts: { json: boolean }
 
   const out: string[] = [];
   out.push(`\n${result.ok ? "✓" : "✗"} boule ${result.workflow} — ${result.stopReason}`);
-  out.push(`  Run: ${result.runId}`);
+  out.push(`  Run: ${result.runId}${result.resumedFrom ? ` (resumed from ${result.resumedFrom})` : ""}`);
 
   if (result.artifactsWritten.length) {
     out.push("  Issues:");

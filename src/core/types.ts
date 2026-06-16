@@ -88,6 +88,8 @@ export interface RunMetrics {
 export interface AgentRunResult {
   ok: boolean;
   runId: string;
+  sessionId?: string; // SDK session, for `boule resume`
+  resumedFrom?: string; // runId this run continued, if any
   workflow: string;
   artifactsPlanned: number;
   artifactsWritten: IssueRef[];

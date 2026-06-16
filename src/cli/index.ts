@@ -12,6 +12,7 @@ import { registerGap } from "./commands/gap.js";
 import { registerInit } from "./commands/init.js";
 import { registerPlan } from "./commands/plan.js";
 import { registerRequirements } from "./commands/requirements.js";
+import { registerResume } from "./commands/resume.js";
 import { registerRuns } from "./commands/runs.js";
 import { registerStatus } from "./commands/status.js";
 import { registerSync } from "./commands/sync.js";
@@ -50,6 +51,7 @@ export function buildProgram(): Command {
     registerStatus,
     registerDaily,
     registerUndo,
+    registerResume,
     registerRuns,
     registerConfig,
     registerAuth,

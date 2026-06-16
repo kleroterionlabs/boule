@@ -12,6 +12,29 @@ export function runDir(runId: string): string {
   return join(process.cwd(), RUNS_ROOT, runId);
 }
 
+/** Enough to resume a run: the SDK session to reattach to, plus what was being asked. */
+export interface Checkpoint {
+  runId: string;
+  sessionId: string;
+  workflow: string;
+  prompt: string;
+  status: "running" | "success" | "failed";
+  stopReason?: string;
+  updatedAt: string;
+}
+
+export function saveCheckpoint(cp: Checkpoint): void {
+  const dir = runDir(cp.runId);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "checkpoint.json"), `${JSON.stringify(cp, null, 2)}\n`);
+}
+
+export function loadCheckpoint(runId: string): Checkpoint | null {
+  const path = join(runDir(runId), "checkpoint.json");
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, "utf8")) as Checkpoint;
+}
+
 /** Persist the result + full mutation ledger for a finished run. Returns the report path. */
 export function persistRun(runId: string, report: AgentRunResult, ledger: Ledger): string {
   const dir = runDir(runId);

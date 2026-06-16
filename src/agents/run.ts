@@ -11,6 +11,8 @@ export interface RunArgs {
   options: Options;
   workflow: string;
   log: Logger;
+  /** Called once with the SDK session id (at init) so the caller can checkpoint for resume. */
+  onSession?: (sessionId: string) => void;
 }
 
 function stopReasonOf(subtype: string): StopReason {
@@ -25,11 +27,14 @@ export async function runAgent(args: RunArgs): Promise<AgentRunResult> {
   const meter = new CostMeter();
   let stopReason: StopReason = "error_during_execution";
   let numTurns = 0;
+  let sessionId = "";
   const errors: string[] = [];
 
   for await (const msg of query({ prompt: args.prompt, options: args.options })) {
     if (msg.type === "system" && msg.subtype === "init") {
-      args.log.info({ sessionId: msg.session_id }, "agent run started");
+      sessionId = msg.session_id;
+      args.log.info({ sessionId }, "agent run started");
+      args.onSession?.(sessionId);
     }
     if (msg.type === "result") {
       stopReason = stopReasonOf(msg.subtype);
@@ -43,6 +48,7 @@ export async function runAgent(args: RunArgs): Promise<AgentRunResult> {
   return {
     ok: stopReason === "success",
     runId: args.runId,
+    ...(sessionId ? { sessionId } : {}),
     workflow: args.workflow,
     artifactsPlanned: 0, // populated below from the ledger
     artifactsWritten: [], // populated below from the ledger
