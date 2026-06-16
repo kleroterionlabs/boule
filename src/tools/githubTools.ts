@@ -11,6 +11,7 @@ import { addItem, setItemFields } from "../github/projects.js";
 import type { RepoContext } from "../github/resolve.js";
 import type { Ledger } from "../observability/ledger.js";
 import type { Logger } from "../observability/logger.js";
+import { validateArtifact } from "../quality/validate.js";
 import { scrubSecrets } from "../util/secrets.js";
 
 export interface ToolContext {
@@ -80,6 +81,17 @@ export function createGithubMcpServer(ctx: ToolContext) {
             const body = scrubSecrets(args.body);
             if (body.found.length) {
               ctx.log.warn({ found: body.found, bouleId: args.bouleId }, "redacted secrets from issue body");
+            }
+            // Methodology gate (design §3): block the write on structural failures so the agent fixes
+            // and retries; warnings are advisory. This is the deterministic backstop behind the Critic.
+            const v = validateArtifact(args.kind, body.clean);
+            if (v.warnings.length) {
+              ctx.log.warn({ warnings: v.warnings, bouleId: args.bouleId }, "artifact validation warnings");
+            }
+            if (!v.ok) {
+              return fail(
+                `artifact ${args.bouleId} (${args.kind}) failed validation: ${v.errors.join("; ")}. Fix the draft and call gh_upsert_issue again.`,
+              );
             }
             const res = await upsertIssue(gh, {
               owner: rc.owner,

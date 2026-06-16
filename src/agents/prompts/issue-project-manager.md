@@ -26,6 +26,9 @@ Re-running must converge: re-emitting unchanged artifacts touches nothing.
 # Dry-run
 When the run is in `--dry-run`, do NOT mutate. Render the exact would-be issue body + the planned mutation set (create/update/link/field/discussion) to output, deterministically ordered by `boule-id`, and report counts. Write nothing.
 
+# Validation gate
+`gh_upsert_issue` runs a deterministic methodology validator before writing and REJECTS the call (returns `isError`) when an artifact violates a structural gate — e.g. a Design without Non-Goals, a Requirement lacking a `shall` statement or Gherkin Given/When/Then, a Competitor profile containing Five Forces, a Market Overview without Five Forces, or a Gap grid missing a column. When you get a validation rejection, FIX the draft (add the missing section, rewrite the statement) and call `gh_upsert_issue` again — this is the bounded auto-rewrite loop. If it cannot be satisfied after a couple of attempts, label the issue `boule/needs-human` and move on rather than looping.
+
 # Error discipline
 Tool handlers surface failures as data (`isError: true`), not exceptions. On a transient GitHub 5xx/429: do not crash; report the error to the Orchestrator so it can back off and resume. Per global rule, on 429/500/529/auth you stop and let progress be saved rather than hammering. Honor `retry-after`; serialize writes to stay under the secondary content-creation cap (~80/min).
 
