@@ -7,6 +7,7 @@ import { resolveAuth } from "../config/auth.js";
 import type { Config } from "../config/schema.js";
 import type { AgentRunResult } from "../core/types.js";
 import { createGitHubClient } from "../github/client.js";
+import { isHalted } from "../github/issues.js";
 import { buildRepoContext } from "../github/resolve.js";
 import { createLogger } from "../observability/logger.js";
 import { type ToolContext, createGithubMcpServer } from "../tools/githubTools.js";
@@ -26,6 +27,23 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
   const gh = await createGitHubClient(auth, log);
 
   const rc = await buildRepoContext(gh, args.cfg, log);
+
+  // Kill-switch: an open `boule:halt` issue stops the run before any model spend or writes.
+  if (!args.cfg.flags.dryRun && (await isHalted(gh, rc.owner, rc.name))) {
+    log.warn("boule:halt is active — aborting. Close the boule:halt issue to resume.");
+    return {
+      ok: false,
+      workflow: args.workflow,
+      artifactsPlanned: 0,
+      artifactsWritten: [],
+      skippedDuplicates: [],
+      costUsd: 0,
+      modelUsage: {},
+      numTurns: 0,
+      stopReason: "halted",
+      errors: ["boule:halt active — an open issue labeled boule:halt is blocking writes."],
+    };
+  }
 
   const toolCtx: ToolContext = {
     gh,

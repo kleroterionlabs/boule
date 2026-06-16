@@ -22,6 +22,8 @@ export const OPERATIONAL_LABELS = {
   managed: "boule:managed",
   needsHuman: "boule:needs-human",
   superseded: "boule:superseded",
+  /** Kill-switch: an OPEN issue carrying this label halts all Boule writes. Close it to resume. */
+  halt: "boule:halt",
 } as const;
 
 export const STATUS_LABELS = [

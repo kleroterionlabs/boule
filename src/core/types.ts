@@ -67,7 +67,12 @@ export interface UpsertResult {
   fingerprint: Fingerprint;
 }
 
-export type StopReason = "success" | "error_max_turns" | "error_max_budget_usd" | "error_during_execution";
+export type StopReason =
+  | "success"
+  | "error_max_turns"
+  | "error_max_budget_usd"
+  | "error_during_execution"
+  | "halted";
 
 export interface AgentRunResult {
   ok: boolean;

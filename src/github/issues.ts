@@ -52,6 +52,14 @@ async function listByLabel(
 
 const lowest = (xs: FoundIssue[]): FoundIssue => xs.reduce((a, b) => (a.number <= b.number ? a : b));
 
+/** Kill-switch poll: true if any OPEN issue carries the `boule:halt` label. */
+export async function isHalted(gh: GitHubClient, owner: string, name: string): Promise<boolean> {
+  const res = await gh.withRest("read", (o) =>
+    o.issues.listForRepo({ owner, repo: name, labels: OPERATIONAL_LABELS.halt, state: "open", per_page: 1 }),
+  );
+  return res.data.length > 0;
+}
+
 /** Resolve an existing artifact issue by its boule-id (canonical = lowest number). */
 export async function findByBouleId(
   gh: GitHubClient,

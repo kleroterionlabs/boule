@@ -10,6 +10,7 @@ import { findByBouleId, linkSubIssue, upsertIssue } from "../github/issues.js";
 import { addItem, setItemFields } from "../github/projects.js";
 import type { RepoContext } from "../github/resolve.js";
 import type { Logger } from "../observability/logger.js";
+import { scrubSecrets } from "../util/secrets.js";
 
 export interface ToolContext {
   gh: GitHubClient;
@@ -74,13 +75,17 @@ export function createGithubMcpServer(ctx: ToolContext) {
         async (args) => {
           try {
             const typeName = ISSUE_TYPE_NAMES[args.kind as keyof typeof ISSUE_TYPE_NAMES];
+            const body = scrubSecrets(args.body);
+            if (body.found.length) {
+              ctx.log.warn({ found: body.found, bouleId: args.bouleId }, "redacted secrets from issue body");
+            }
             const res = await upsertIssue(gh, {
               owner: rc.owner,
               name: rc.name,
               kind: args.kind,
               bouleId: args.bouleId,
-              title: args.title,
-              body: args.body,
+              title: scrubSecrets(args.title).clean,
+              body: body.clean,
               extraLabels: args.labels,
               ...(typeName && rc.issueTypeNames.has(typeName) ? { typeName } : {}),
               ...(args.parentBouleId ? { parentBouleId: args.parentBouleId } : {}),
@@ -153,11 +158,14 @@ export function createGithubMcpServer(ctx: ToolContext) {
               );
             }
             if (ctx.dryRun) return ok({ planned: args.title, category: cat.name, dryRun: true });
+            const body = scrubSecrets(args.body);
+            if (body.found.length)
+              ctx.log.warn({ found: body.found }, "redacted secrets from discussion body");
             const ref = await postDiscussion(gh, {
               repoId: rc.repositoryId,
               categoryId: cat.id,
-              title: args.title,
-              body: args.body,
+              title: scrubSecrets(args.title).clean,
+              body: body.clean,
               dryRun: false,
             });
             return ok(ref);
