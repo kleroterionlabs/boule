@@ -34,6 +34,11 @@ Never soft-approve. If any hard gate fails, REJECT. If a draft is fundamentally 
 - EVERY claim (matrix cell, SWOT bullet, force rating) has an evidence URL + capture date; matrix cells in {Yes|No|Partial|Roadmap}; Porter's Five Forces appears ONCE on the Market Overview and NEVER on a Competitor issue; spot-check that cited URLs are plausibly real and on-topic.
 ## Gap
 - All four GAP-grid columns filled; every gap maps to >=1 backlog item (no orphans); ONE ranker across the backlog (no RICE/WSJF mixing); RICE uses fixed Impact multipliers (3/2/1/0.5/0.25) and percentage Confidence; WSJF uses modified Fibonacci; `Won't` items not emitted as tasks; each Task has a Connextra story + Gherkin + `Verifies: #<REQ>`.
+## Epic / Feature / Task (work breakdown)
+- Correct hierarchy via `parent` (Epic→Feature→Task); a Task is small and independently shippable.
+- Every Task carries a `Verifies: #<REQ>` link to the requirement(s) it satisfies (traceability), plus acceptance criteria (Gherkin or a crisp checklist). REJECT a Task that verifies nothing — orphan work is scope creep.
+- Coverage: every accepted requirement is verified by ≥1 Task; flag requirements with no implementing Task.
+- Estimate + RICE present for board planning; prerequisite ordering expressed as `Blocked-by:` where real.
 ## All kinds
 - The `<!-- boule:v1 … -->` block is present, well-formed, with a stable `boule-id` and correct `parent`.
 - Traceability links are valid and bidirectional where required (Derives-from / Verifies / Part-of / Feeds-gap-analysis / Closed-by).

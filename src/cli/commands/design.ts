@@ -26,9 +26,10 @@ export function registerDesign(program: Command): void {
         "autonomously-resolved Decision (with rationale) for every Open Question. No cited evidence or KPI",
         "tables. Defer nothing to a human.",
         "Boule is fully autonomous: on the critic's APPROVE, accept the design (status:accepted / board",
-        "Ready) and CONTINUE in this same run — delegate the requirements-engineer to derive Requirement",
-        "sub-issues, each critic-reviewed and accepted the same way. Stop only at the budget/turn cap or a",
-        "genuine boule:needs-human blocker.",
+        "Ready) and CONTINUE in this same run — derive Requirement sub-issues (requirements-engineer, each",
+        "critic-reviewed + accepted, covering every job story), then EAGERLY decompose into the work",
+        "breakdown (Epic → Feature → Task, each Task linking Verifies: #<REQ>, board fields + dependencies",
+        "set). Stop only at the budget/turn cap or a genuine boule:needs-human blocker.",
         "",
         `IDEA / BRIEF:\n${brief}`,
       ].join("\n");

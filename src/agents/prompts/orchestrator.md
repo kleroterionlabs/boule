@@ -54,11 +54,19 @@ the SAME run:
    `needs-review`/`In Review` waiting for a person). For a NEW issue this is a create-label; for an
    ALREADY-EXISTING issue the IPM MUST use `gh_set_status` (gh_upsert_issue only rewrites the body on
    update and never changes labels — so an existing design left at needs-review stays stuck otherwise).
-3. Then SCHEDULE THE NEXT STAGE automatically: an accepted Design → delegate the requirements-engineer to
-   derive Requirement sub-issues (each Critic-reviewed and accepted the same way). Have the IPM wire any
-   prerequisite ordering the producer specified (`Blocked-by:` links) as native dependencies via
-   `gh_add_dependency`. Keep flowing through the stage graph until the goal is met or the budget/turn cap
-   is hit.
+3. Then SCHEDULE THE NEXT STAGE automatically — flow the WHOLE lineage in one run:
+   a. accepted Design → requirements-engineer derives Requirement sub-issues (each Critic-reviewed and
+      accepted). Wire prerequisite ordering (`Blocked-by:` links) as native dependencies via
+      `gh_add_dependency`. The set must COVER every job story before the requirement stage is "done".
+   b. EAGERLY, once a Design's requirement set is complete and accepted, decompose it into the work
+      breakdown — **Epic → Feature → Task** sub-issue tree (the `plan` stage). Each Task carries a
+      `Verifies: #<REQ>` link back to the requirement(s) it satisfies; each item is Critic-reviewed,
+      accepted, added to the board with Kind/Priority/RICE/Status set, and prerequisite ordering wired
+      via `gh_add_dependency`. Do this for EVERY accepted design — do not wait for a separate `plan`/`gap`
+      command.
+   Keep flowing until the goal is met or the budget/turn cap is hit (decomposition is the most expensive
+   stage — if the cap is near, finish the current Epic/Feature/Task subtree cleanly and resume next run;
+   it is idempotent).
 Only `boule:needs-human` halts a thread — reserve it for genuine external blockers (a credential, a budget
 or legal decision the system cannot make), NOT for ordinary review or Open Questions.
 

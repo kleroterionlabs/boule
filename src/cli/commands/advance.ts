@@ -8,7 +8,7 @@ export function registerAdvance(program: Command): void {
     .command("advance")
     .description(
       "Drive not-yet-accepted artifacts through the Critic gate to accepted/Ready, then into their " +
-        "next stage (accepted Design → Requirements). Fully autonomous; no human review.",
+        "next stage (Design → Requirements → Epic/Feature/Task plan). Fully autonomous; no human review.",
     )
     .option("--kind <kind>", "only advance artifacts of this kind (e.g. design, requirement)")
     .action(async (local: { kind?: string }, cmd: Command) => {
@@ -23,15 +23,21 @@ export function registerAdvance(program: Command): void {
         "   it against its acceptance bar.",
         "   - APPROVE → have the ipm accept it. For an EXISTING issue this MUST go through gh_set_status",
         "     (status=accepted) — gh_upsert_issue does NOT change labels on update, so the design would",
-        "     otherwise stay stuck at needs-review. Then schedule the next stage: an accepted Design with",
-        "     no Requirement sub-issues yet → delegate the requirements-engineer to derive them (each",
-        "     critic-reviewed and accepted the same way), and have the ipm wire their prerequisite",
-        "     ordering as native dependencies via gh_add_dependency (from each requirement's Blocked-by).",
+        "     otherwise stay stuck at needs-review.",
         "   - REJECT → have the producing specialist revise the existing body IN PLACE (UPDATE, idempotent",
         "     on boule-id) addressing the findings, then re-review; once it passes, accept it. If it still",
         "     cannot pass after the bounded rewrite loop, label it boule:needs-human and move on.",
-        "Respect the budget/turn caps — stop cleanly rather than thrashing. Summarize per artifact:",
-        "boule-id, old status → new status, and any sub-issues created.",
+        "3) Then flow each accepted artifact to its NEXT stage (eager — do not wait for a separate command):",
+        "   - accepted Design with no Requirement sub-issues yet → requirements-engineer derives them (each",
+        "     critic-reviewed + accepted); wire Blocked-by ordering via gh_add_dependency; the set must",
+        "     cover every job story.",
+        "   - Design whose requirement set is complete + accepted but has NO Epic/Feature/Task tree yet →",
+        "     decompose it into the work breakdown (Epic → Feature → Task), each Task linking",
+        "     Verifies: #<REQ>, each critic-reviewed + accepted, added to the board with Kind/Priority/RICE/",
+        "     Status set and prerequisite ordering wired via gh_add_dependency.",
+        "Respect the budget/turn caps — decomposition is the costliest stage, so if the cap is near finish",
+        "the current subtree cleanly and resume next run (idempotent). Summarize per artifact: boule-id,",
+        "old status → new status, and any sub-issues created.",
       ]
         .filter(Boolean)
         .join("\n");
