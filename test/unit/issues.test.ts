@@ -116,16 +116,17 @@ describe("listOpenQuestionArtifacts", () => {
   });
 
   it("queries with the managed label and open state", async () => {
-    let seen: URL | null = null;
+    const query: Record<string, string | null> = {};
     server.use(
       http.get(ISSUES, ({ request }) => {
-        seen = new URL(request.url);
+        const p = new URL(request.url).searchParams;
+        query.labels = p.get("labels");
+        query.state = p.get("state");
         return HttpResponse.json([]);
       }),
     );
     const gh = await createGitHubClient(auth, log);
     expect(await listOpenQuestionArtifacts(gh, "acme", "widgets")).toEqual([]);
-    expect(seen?.searchParams.get("labels")).toBe("boule:managed");
-    expect(seen?.searchParams.get("state")).toBe("open");
+    expect(query).toEqual({ labels: "boule:managed", state: "open" });
   });
 });
