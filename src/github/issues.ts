@@ -71,6 +71,7 @@ export interface IssueSummary {
   kind: ArtifactKind | null; // boule block kind, else the `kind:` label, else null
   bouleId: string | null; // null for non-boule issues
   managed: boolean; // carries the boule:managed label
+  openQuestions: number; // count of UNRESOLVED Open Questions (resolved ones move to Decisions)
   updatedAt: string;
 }
 
@@ -130,6 +131,7 @@ export async function listIssues(
         kind: block?.kind ?? kindFromLabels(labels),
         bouleId: block?.bouleId ?? null,
         managed: labels.includes(OPERATIONAL_LABELS.managed),
+        openQuestions: parseOpenQuestions(i.body ?? "").length,
         updatedAt: i.updated_at,
       });
     }

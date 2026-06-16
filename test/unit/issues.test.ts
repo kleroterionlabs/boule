@@ -109,17 +109,19 @@ describe("listIssues", () => {
     ...over,
   });
 
-  it("summarizes issues, skips PRs, and derives kind/boule-id from block or label", async () => {
-    const body = withBouleBlock("A design", {
+  it("summarizes issues, skips PRs, counts open questions, derives kind/boule-id", async () => {
+    const body = withBouleBlock("A design\n\n## Open Questions\n- OQ1: scope?\n- OQ2: when?\n", {
       kind: "design",
       bouleId: "design:foo",
       generatedBy: "boule",
     });
+    // No boule block ⇒ kind/boule-id fall back to labels; OQs all moved to Resolved Decisions.
+    const resolved = "A design\n\n## Open Questions\n\n## Resolved Decisions\n- **OQ1**: yes\n";
     server.use(
       http.get(ISSUES, () =>
         HttpResponse.json([
-          issue({ number: 1, body, labels: [{ name: "boule:managed" }], title: "From block" }),
-          issue({ number: 2, labels: [{ name: "kind:task" }], title: "From label" }),
+          issue({ number: 1, body, labels: [{ name: "boule:managed" }], title: "Two OQs" }),
+          issue({ number: 2, body: resolved, labels: [{ name: "kind:task" }], title: "All resolved" }),
           issue({ number: 3, pull_request: { url: "x" }, title: "A PR" }),
         ]),
       ),
@@ -128,8 +130,13 @@ describe("listIssues", () => {
     const { issues, truncated } = await listIssues(gh, "acme", "widgets");
     expect(truncated).toBe(false);
     expect(issues.map((i) => i.number)).toEqual([1, 2]); // PR excluded
-    expect(issues[0]).toMatchObject({ kind: "design", bouleId: "design:foo", managed: true });
-    expect(issues[1]).toMatchObject({ kind: "task", bouleId: null, managed: false });
+    expect(issues[0]).toMatchObject({
+      kind: "design",
+      bouleId: "design:foo",
+      managed: true,
+      openQuestions: 2,
+    });
+    expect(issues[1]).toMatchObject({ kind: "task", bouleId: null, managed: false, openQuestions: 0 });
   });
 
   it("caps at max and reports truncation", async () => {

@@ -69,7 +69,8 @@ export function createGithubMcpServer(ctx: ToolContext) {
           "list issues). Filter by state (open|closed|all, default open), a single label, kind " +
           "(e.g. 'task'), managedOnly (boule-managed issues only), or since (ISO-8601 — only issues " +
           "updated on/after). Filters combine with AND. Returns number, title, url, state, labels, kind, " +
-          "boule-id, managed flag and updatedAt — NOT bodies; fetch a body with gh_find_issue if needed. " +
+          "boule-id, managed flag, openQuestions (count of UNRESOLVED Open Questions — 0 means none are " +
+          "outstanding) and updatedAt — NOT bodies; fetch a body with gh_find_issue if needed. " +
           "Results are capped at `max`; if `truncated` is true, narrow with filters.",
         {
           state: z.enum(["open", "closed", "all"]).default("open"),

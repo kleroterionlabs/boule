@@ -14,6 +14,8 @@ export function registerTriage(program: Command): void {
         "Triage the backlog: for each untriaged boule issue, assign Kind / Priority / RICE,",
         "detect likely duplicates (by boule-id and by content similarity), flag blockers, and",
         "update the board accordingly. Summarize what changed and why.",
+        "Use gh_list_issues to read each issue's openQuestions count: only recommend answering Open",
+        "Questions for issues where openQuestions > 0 — never assume a design has unresolved questions.",
         local.since ? `Only consider issues updated on or after ${local.since}.` : "",
         local.assign ? "Also propose assignees/owners for items that are ready to be worked." : "",
         local.dedupe
