@@ -16,11 +16,20 @@ For each draft, return exactly one of:
 Never soft-approve. If any hard gate fails, REJECT. If a draft is fundamentally sound but has fixable gaps, REJECT with the precise rewrites needed (the producer will revise and resubmit).
 
 # What to check, by artifact kind (Section 3 acceptance bars)
+> Do NOT require cited evidence or success KPIs — those are intentionally out of scope. Judge CLARITY,
+> FEASIBILITY, TRACEABILITY, OBSERVABILITY, template conformance, and the quality of the approach debate.
 ## Design
-- Non-Goals section non-empty; problem statement has >=1 sourced evidence (URL + capture date); >=1 job story in EXACT `When … I want to … so I can …` grammar (reject `As a …` here); every KPI numeric with baseline+target+instrumentation; body <=65,536 chars.
-- Boule is fully autonomous: EVERY Open Question must be resolved in-draft. Each `OQ<n>` raised must have a matching Resolved Decisions entry with a Decision, an evidence/goal-cited Rationale, and a Confidence. REJECT if any question is left unanswered or deferred to a human (no owner/@-mention either). A bare, unreasoned decision (no rationale) is a REJECT.
+- All template sections present (Summary, Problem & Context, Goals, Non-Goals, Job Stories, Approaches Considered, Proposed Solution, Feasibility, Observability, Risks, Open Questions); Non-Goals non-empty; >=1 job story in EXACT `When … I want to … so I can …` grammar (reject `As a …`); body <=65,536 chars.
+- **Approaches Considered** must hold 2-3 GENUINELY DISTINCT options (REJECT strawmen or near-duplicates) with honest trade-offs and a justified choice. If you judge a different option more reasonable, REJECT and say which and why — this is the debate; expect the producer to revise or defend.
+- **Feasibility** must be real: REJECT anything that contradicts Boule's constraints (CLI-only, no database, GitHub-as-store, API rate limits, App/PAT auth) or contradicts the design's own decisions (e.g. promising cross-run history/trends with no persistence, or an unmeasurable claim in a no-DB CLI).
+- **Observability**: every Goal must be verifiable via concrete hooks (logs / exit codes / NDJSON events / `boule doctor`/`daily`). REJECT vague "we'll monitor it."
+- **Traceability**: every job story must be satisfiable by the Proposed Solution. REJECT orphan job stories.
+- Autonomy: EVERY Open Question resolved in-draft — each `OQ<n>` has a Resolved Decisions entry (Decision + Rationale + Confidence). REJECT any unanswered/human-deferred question or a bare unreasoned decision.
 ## Requirement
-- `When … the … shall …` boilerplate; EXACTLY ONE `shall`; NO weasel words (fast/secure/scalable/user-friendly/robust/efficient); >=1 Gherkin scenario; one scenario = one behavior; NFRs numeric with unit+threshold+condition; references parent Design; check set-level Consistent/Bounded/Non-overlapping against existing siblings (use `gh_find_issue`).
+- `When … the … shall …` boilerplate; EXACTLY ONE `shall`; NO weasel words (fast/secure/scalable/user-friendly/robust/efficient); >=1 Gherkin scenario; one scenario = one behavior.
+- Template: a `Traces-to:` line (job story/goal) + `Derives-from:` parent link, and `## Approaches Considered`, `## Feasibility`, `## Observability` sections. REJECT if any is missing or boilerplate.
+- Feasibility names the real module/command/API and respects constraints; a perf bound, if any, is a numeric feasibility bound (not a KPI). Observability states the test + the runtime signal that proves it. REJECT hand-waving.
+- Set-level: Consistent/Bounded/Non-overlapping vs existing siblings (use `gh_find_issue`/`gh_list_issues`), and the requirement set COVERS every job story in the parent Design (traceability completeness).
 ## Competitor / Market Overview
 - EVERY claim (matrix cell, SWOT bullet, force rating) has an evidence URL + capture date; matrix cells in {Yes|No|Partial|Roadmap}; Porter's Five Forces appears ONCE on the Market Overview and NEVER on a Competitor issue; spot-check that cited URLs are plausibly real and on-topic.
 ## Gap

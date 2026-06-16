@@ -12,10 +12,17 @@ export interface ValidationResult {
 const heading = (label: string) => new RegExp(`(^|\\n)#{1,6}\\s*${label}`, "i");
 const word = (w: string) => new RegExp(`\\b${w}`, "i");
 
+// The canonical artifact template is enforced by heading presence (high-precision, deterministic);
+// the Critic judges the QUALITY of each section. Designs/requirements require Feasibility, Observability,
+// Traceability, and an Approaches-Considered debate. Evidence citations and success KPIs are NOT required.
 function validateDesign(body: string): Omit<ValidationResult, "ok"> {
   const errors: string[] = [];
   const warnings: string[] = [];
   if (!heading("Non[- ]?Goals").test(body)) errors.push("PRD must have a Non-Goals section");
+  if (!heading("Approaches Considered").test(body))
+    errors.push("design must have an 'Approaches Considered' section (2-3 distinct options + the choice)");
+  if (!heading("Feasibility").test(body)) errors.push("design must have a Feasibility section");
+  if (!heading("Observability").test(body)) errors.push("design must have an Observability section");
   // JTBD job story: "When … I want to … so I can/that …"
   if (!/\bWhen\b[\s\S]{0,240}?\bI want to\b[\s\S]{0,240}?\bso (I can|that)\b/i.test(body)) {
     warnings.push("no JTBD job story in 'When … I want to … so I can …' grammar");
@@ -33,11 +40,11 @@ function validateRequirement(body: string): Omit<ValidationResult, "ok"> {
     errors.push("requirement must be a 'shall'-form statement (ISO/IEC/IEEE 29148)");
   const hasGherkin = word("Given").test(body) && word("When").test(body) && word("Then").test(body);
   if (!hasGherkin) errors.push("requirement must include Gherkin acceptance criteria (Given/When/Then)");
-  const weasel = body.match(
-    /\b(fast|secure|scalable|user-friendly|robust|efficient|reliable|quickly|seamless)\b/i,
-  );
-  if (weasel)
-    warnings.push(`non-numeric NFR term "${weasel[0]}" — NFRs must be numeric (e.g. p95 < 300 ms @ 500 rps)`);
+  // Traceability: must point back to the design (and ideally the job story/goal it serves).
+  if (!/\b(Traces-to|Derives-from)\b/i.test(body))
+    errors.push("requirement must trace to its source ('Traces-to: JS#/G#' or 'Derives-from: #<design>')");
+  if (!heading("Feasibility").test(body)) errors.push("requirement must have a Feasibility section");
+  if (!heading("Observability").test(body)) errors.push("requirement must have an Observability section");
   return { errors, warnings };
 }
 

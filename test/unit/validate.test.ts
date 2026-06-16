@@ -2,34 +2,53 @@ import { describe, expect, it } from "vitest";
 import { validateArtifact } from "../../src/quality/validate.js";
 
 describe("validateArtifact", () => {
-  it("passes a well-formed design and fails one missing Non-Goals", () => {
-    const good =
-      "## Problem\nx\n## Non-Goals\nNot doing y.\n## Job Stories\nWhen I sign in, I want to use a passkey so I can avoid passwords.";
-    expect(validateArtifact("design", good).ok).toBe(true);
+  const goodDesign = [
+    "## Problem",
+    "x",
+    "## Non-Goals",
+    "Not doing y.",
+    "## Job Stories",
+    "When I sign in, I want to use a passkey so I can avoid passwords.",
+    "## Approaches Considered",
+    "A1 passkeys / A2 magic link. Chosen: A1.",
+    "## Feasibility",
+    "WebAuthn is available; no new storage needed.",
+    "## Observability",
+    "Log auth outcome + exit code.",
+  ].join("\n");
 
-    const bad = "## Problem\nx\n## Job Stories\nWhen I sign in, I want to use a passkey so that it is fast.";
-    const r = validateArtifact("design", bad);
-    expect(r.ok).toBe(false);
-    expect(r.errors.join()).toMatch(/Non-Goals/i);
+  it("passes a well-formed design and fails when a required section is missing", () => {
+    expect(validateArtifact("design", goodDesign).ok).toBe(true);
+
+    // missing Non-Goals
+    expect(validateArtifact("design", goodDesign.replace("## Non-Goals", "## Nope")).ok).toBe(false);
+    // missing Feasibility / Observability / Approaches each block
+    for (const h of ["## Approaches Considered", "## Feasibility", "## Observability"]) {
+      const r = validateArtifact("design", goodDesign.replace(h, "## Other"));
+      expect(r.ok).toBe(false);
+    }
   });
 
-  it("requires shall-form + Gherkin on requirements", () => {
-    const good =
-      "The system shall authenticate via OTP.\n## Acceptance\nGiven a user\nWhen they submit a code\nThen access is granted.";
-    expect(validateArtifact("requirement", good).ok).toBe(true);
+  const goodReq = [
+    "Traces-to: JS1 / G1",
+    "The system shall authenticate via OTP.",
+    "## Acceptance",
+    "Given a user When they submit a code Then access is granted.",
+    "## Feasibility",
+    "Reuses the existing auth client.",
+    "## Observability",
+    "Emits an auth event with trace id.",
+  ].join("\n");
 
-    const noShall = "Authenticate via OTP.\nGiven/When/Then present: Given x When y Then z";
-    expect(validateArtifact("requirement", noShall).ok).toBe(false);
+  it("requires shall-form, Gherkin, traceability, feasibility, and observability on requirements", () => {
+    expect(validateArtifact("requirement", goodReq).ok).toBe(true);
 
-    const noGherkin = "The system shall authenticate via OTP within 300 ms.";
+    expect(validateArtifact("requirement", goodReq.replace("shall ", "will ")).ok).toBe(false); // no shall
+    expect(validateArtifact("requirement", goodReq.replace("Traces-to: JS1 / G1", "")).ok).toBe(false);
+    expect(validateArtifact("requirement", goodReq.replace("## Feasibility", "## X")).ok).toBe(false);
+    expect(validateArtifact("requirement", goodReq.replace("## Observability", "## X")).ok).toBe(false);
+    const noGherkin = "Traces-to: G1\nThe system shall X.\n## Feasibility\na\n## Observability\nb";
     expect(validateArtifact("requirement", noGherkin).ok).toBe(false);
-  });
-
-  it("warns on weasel NFR words but does not block", () => {
-    const body = "The system shall be fast.\nGiven x When y Then z";
-    const r = validateArtifact("requirement", body);
-    expect(r.ok).toBe(true);
-    expect(r.warnings.join()).toMatch(/non-numeric NFR/i);
   });
 
   it("rejects Five Forces on a competitor and requires it on a market overview", () => {

@@ -24,8 +24,19 @@ Decompose into this DAG and drive it with TodoWrite. Fan out only where units ar
 repo-scout and competitive-analyst legs can run concurrently with design once scout context exists. Sequence the rest because each consumes the prior's artifacts.
 
 # Methodology you enforce (Section 3)
-- Designs: mandatory Non-Goals; JTBD job stories in exact grammar `When … I want to … so I can …`; numeric KPIs with baseline+target+instrumentation; Open Questions carry a stable `OQ<n>` id and NO owner/@-mention, and the designer RESOLVES every one in-draft (Decision + Rationale + Confidence in Resolved Decisions) — the system is fully autonomous, so nothing is deferred to a human.
-- Requirements: ISO/IEC/IEEE 29148 `shall`-form boilerplate; exactly one `shall` per statement; numeric NFRs (no weasel words: fast/secure/scalable/user-friendly); Gherkin Given/When/Then keyed back to the requirement id.
+Optimize artifacts for CLARITY, FEASIBILITY, TRACEABILITY, and OBSERVABILITY. Do NOT require cited
+evidence or success KPIs — those are intentionally out of scope; designs ground themselves in real
+product/repo reality instead.
+- Designs: mandatory Non-Goals; JTBD job stories in exact grammar `When … I want to … so I can …`; an **Approaches Considered** debate (2-3 distinct options + the choice); **Feasibility** and **Observability** sections; Open Questions carry a stable `OQ<n>` id and NO owner/@-mention, and the designer RESOLVES every one in-draft (Decision + Rationale + Confidence) — fully autonomous, nothing deferred to a human.
+- Requirements: ISO/IEC/IEEE 29148 `shall`-form boilerplate; exactly one `shall` per statement; Gherkin Given/When/Then; a `Traces-to:` line (job story/goal), an Approaches-Considered note, and Feasibility + Observability sections. The set must cover every job story (traceability completeness).
+
+# Approach debate (every artifact)
+Each artifact is decided through a real debate, not a one-shot draft: the producer proposes 2-3 GENUINELY
+DISTINCT approaches with honest trade-offs and a recommended choice; the Critic adjudicates and may push
+for a different option (REJECT with the reasoning). Run this back-and-forth until the Critic APPROVES or
+the bounded rewrite budget is hit — keep it tight (a couple of rounds), and prefer the most reasonable,
+buildable outcome. Capture the debate in the `Design Review`/`Agent Handoffs` Discussion so the reasoning
+trail is visible, and keep the chosen-approach summary in the artifact body.
 - Competitive: SWOT per competitor; ONE Five Forces (on the Market Overview only, never on a competitor); every claim has a sourced evidence URL + capture date; matrix cells ∈ Yes/No/Partial/Roadmap.
 - Gap: Current|Desired|Gap|Action grid with all four columns filled; every gap maps to ≥1 backlog item; ONE primary ranker (RICE or WSJF) per backlog — never mix; MoSCoW as coarse pre-filter; `Won't` items are recorded but NOT emitted as tasks.
 
