@@ -66,6 +66,15 @@ mutation CreateNumberField($projectId: ID!, $name: String!) {
   }
 }`;
 
+// Replaces a single-select field's option list. Re-send existing options WITH their id to preserve
+// item assignments; new options carry no id. (id input added 2026-04; name+color+description required.)
+export const UPDATE_SELECT_OPTIONS = /* GraphQL */ `
+mutation UpdateSelectOptions($fieldId: ID!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
+  updateProjectV2Field(input: { fieldId: $fieldId, singleSelectOptions: $options }) {
+    projectV2Field { ... on ProjectV2SingleSelectField { id } }
+  }
+}`;
+
 // Org-level; requires the App to have organization administration access. Falls back to labels otherwise.
 export const CREATE_ISSUE_TYPE = /* GraphQL */ `
 mutation CreateIssueType($ownerId: ID!, $name: String!, $color: IssueTypeColor, $description: String) {

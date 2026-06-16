@@ -51,3 +51,15 @@ query ProjectByOwner($login: String!, $number: Int!) {
 
 export const OWNER_ID = /* GraphQL */ `
 query OwnerId($login: String!) { repositoryOwner(login: $login) { id } }`;
+
+// Full single-select options (incl. color + description) — needed to re-send them on an options merge.
+export const SELECT_FIELD_OPTIONS = /* GraphQL */ `
+query FieldOptions($projectId: ID!, $name: String!) {
+  node(id: $projectId) {
+    ... on ProjectV2 {
+      field(name: $name) {
+        ... on ProjectV2SingleSelectField { id options { id name color description } }
+      }
+    }
+  }
+}`;

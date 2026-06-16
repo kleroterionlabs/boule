@@ -16,16 +16,17 @@ import {
   CREATE_PROJECT_V2,
   CREATE_SELECT_FIELD,
   LINK_PROJECT_V2,
+  UPDATE_SELECT_OPTIONS,
 } from "./mutations.js";
 import { resolveProjectId, resolveRepoId } from "./nodeIds.js";
 import { readProjectSchema } from "./projects.js";
-import { ORG_ISSUE_TYPES, OWNER_ID } from "./queries.js";
+import { ORG_ISSUE_TYPES, OWNER_ID, SELECT_FIELD_OPTIONS } from "./queries.js";
 
 export interface BootstrapReport {
   labels: { created: string[]; existed: string[] };
   issueTypes: { created: string[]; verified: string[]; missing: string[] };
   project?: { number: number; url: string; created: boolean };
-  projectFields: { created: string[]; existed: string[] };
+  projectFields: { created: string[]; existed: string[]; optionsAdded: string[] };
   discussions: { verified: string[]; missing: string[] };
   manualActions: string[];
 }
@@ -75,7 +76,7 @@ export async function bootstrap(
   const report: BootstrapReport = {
     labels: { created: [], existed: [] },
     issueTypes: { created: [], verified: [], missing: [] },
-    projectFields: { created: [], existed: [] },
+    projectFields: { created: [], existed: [], optionsAdded: [] },
     discussions: { verified: [], missing: [] },
     manualActions: [],
   };
@@ -245,6 +246,8 @@ async function ensureProjectFields(
   for (const f of selects) {
     if (existing[f.name]) {
       report.projectFields.existed.push(f.name);
+      // The field may pre-exist (e.g. GitHub's built-in Status) with foreign options — merge Boule's in.
+      await mergeSelectOptions(gh, projectId, f.name, f.options, dryRun, report);
       continue;
     }
     if (!dryRun) {
@@ -271,4 +274,49 @@ async function ensureProjectFields(
   report.manualActions.push(
     `Create the "${PROJECT_FIELDS.iteration}" iteration field in the Projects UI if you use iterations.`,
   );
+}
+
+/** Add any of Boule's desired options that a (possibly pre-existing) single-select field lacks,
+ *  preserving the field's current options by re-sending them with their ids. */
+async function mergeSelectOptions(
+  gh: GitHubClient,
+  projectId: string,
+  fieldName: string,
+  desired: readonly string[],
+  dryRun: boolean,
+  report: BootstrapReport,
+): Promise<void> {
+  const data = await gh.graphql<{
+    node: {
+      field: {
+        id: string;
+        options: { id: string; name: string; color: string; description: string }[];
+      } | null;
+    } | null;
+  }>("read", SELECT_FIELD_OPTIONS, { projectId, name: fieldName });
+
+  const field = data.node?.field;
+  if (!field) return; // not a single-select field (nothing to merge)
+
+  const present = new Set(field.options.map((o) => o.name.toLowerCase()));
+  const missing = desired.filter((n) => !present.has(n.toLowerCase()));
+  if (missing.length === 0) return;
+
+  if (!dryRun) {
+    const merged = [
+      ...field.options.map((o) => ({
+        id: o.id,
+        name: o.name,
+        color: o.color,
+        description: o.description || o.name,
+      })),
+      ...missing.map((name, i) => ({
+        name,
+        color: SELECT_COLORS[i % SELECT_COLORS.length] ?? "GRAY",
+        description: name,
+      })),
+    ];
+    await gh.graphql("write", UPDATE_SELECT_OPTIONS, { fieldId: field.id, options: merged });
+  }
+  report.projectFields.optionsAdded.push(`${fieldName}: ${missing.join(", ")}`);
 }
