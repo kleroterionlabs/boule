@@ -27,6 +27,34 @@ query ProjectSchema($projectId: ID!) {
   }
 }`;
 
+// Board state for triage/status/sync: each item's id, backing issue, and current field values.
+export const PROJECT_ITEMS = /* GraphQL */ `
+query ProjectItems($projectId: ID!, $cursor: String) {
+  node(id: $projectId) {
+    ... on ProjectV2 {
+      items(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          content {
+            __typename
+            ... on Issue { number title url state }
+            ... on PullRequest { number title url state }
+          }
+          fieldValues(first: 20) {
+            nodes {
+              ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
+              ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2FieldCommon { name } } }
+              ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2FieldCommon { name } } }
+              ... on ProjectV2ItemFieldIterationValue { title field { ... on ProjectV2FieldCommon { name } } }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
 export const DISCUSSION_CATEGORIES_QUERY = /* GraphQL */ `
 query Categories($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {

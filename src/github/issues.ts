@@ -114,7 +114,7 @@ export async function listIssues(
     for (const i of res.data) {
       if (i.pull_request) continue;
       if (issues.length >= max) {
-        truncated = true;
+        truncated = true; // more rows remain on this very page
         break;
       }
       const labels = (i.labels ?? [])
@@ -133,7 +133,13 @@ export async function listIssues(
         updatedAt: i.updated_at,
       });
     }
-    if (truncated || res.data.length < perPage) break; // capped or last page
+    const hasNext = /<[^>]+>;\s*rel="next"/.test(String(res.headers?.link ?? ""));
+    if (truncated) break;
+    if (issues.length >= max) {
+      truncated = hasNext; // filled exactly to the cap — more exist iff another page follows
+      break;
+    }
+    if (!hasNext) break; // last page
     page += 1;
   }
   return { issues, truncated };
@@ -191,6 +197,19 @@ export async function findByBouleId(
 ): Promise<FoundIssue | null> {
   const found = await listByLabel(gh, owner, name, idLabel(bouleId));
   return found.length ? lowest(found) : null;
+}
+
+/** Close an issue by number. NOT_PLANNED for duplicates/orphans, COMPLETED for finished work. */
+export async function closeIssue(
+  gh: GitHubClient,
+  owner: string,
+  name: string,
+  number: number,
+  reason: "completed" | "not_planned" = "not_planned",
+): Promise<void> {
+  await gh.withRest("write", (o) =>
+    o.issues.update({ owner, repo: name, issue_number: number, state: "closed", state_reason: reason }),
+  );
 }
 
 /** create | noop | update — never silently overwrites; posts an audit comment on update. */

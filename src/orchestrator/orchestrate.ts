@@ -144,6 +144,7 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
       "TodoWrite",
       "mcp__github__gh_find_issue",
       "mcp__github__gh_list_issues",
+      "mcp__github__gh_list_project_items",
     ],
     mcpServers: { github: ghServer },
     agents: buildAgents(args.cfg),

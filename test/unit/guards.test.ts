@@ -18,15 +18,18 @@ const opts = {} as Parameters<ReturnType<typeof makeCanUseTool>>[2];
 describe("guards", () => {
   it("classifies write and denied tools", () => {
     expect(isWrite("mcp__github__gh_upsert_issue")).toBe(true);
+    expect(isWrite("mcp__github__gh_close_issue")).toBe(true);
+    expect(isWrite("mcp__github__gh_remove_project_item")).toBe(true);
     expect(isWrite("Read")).toBe(false);
     expect(isDenied("Bash")).toBe(true);
     expect(isDenied("Write")).toBe(true);
+    expect(isDenied("WebFetch")).toBe(false); // WebFetch is allowed but URL-gated, not denied outright
     expect(isDenied("Read")).toBe(false);
   });
 
   it("denies shell / file-mutation tools outright", async () => {
     const gate = makeCanUseTool(base());
-    for (const t of ["Bash", "Write", "Edit", "WebFetch"]) {
+    for (const t of ["Bash", "Write", "Edit", "NotebookEdit"]) {
       expect((await gate(t, {}, opts)).behavior).toBe("deny");
     }
   });
@@ -35,6 +38,14 @@ describe("guards", () => {
     const gate = makeCanUseTool(base());
     expect((await gate("Read", {}, opts)).behavior).toBe("allow");
     expect((await gate("mcp__github__gh_find_issue", {}, opts)).behavior).toBe("allow");
+    expect((await gate("mcp__github__gh_list_project_items", {}, opts)).behavior).toBe("allow");
+  });
+
+  it("gates WebFetch: allows public URLs, denies SSRF/exfiltration", async () => {
+    const gate = makeCanUseTool(base());
+    expect((await gate("WebFetch", { url: "https://example.com" }, opts)).behavior).toBe("allow");
+    expect((await gate("WebFetch", { url: "http://169.254.169.254/" }, opts)).behavior).toBe("deny");
+    expect((await gate("WebFetch", { url: "ftp://example.com" }, opts)).behavior).toBe("deny");
   });
 
   it("denies writes under dry-run and when over the blast-radius cap", async () => {

@@ -6,11 +6,15 @@ import { AGENT_SPECS } from "./prompts.generated.js";
 
 const FIND = "mcp__github__gh_find_issue";
 const LIST = "mcp__github__gh_list_issues";
+const LIST_ITEMS = "mcp__github__gh_list_project_items";
+const READ_TOOLS = [FIND, LIST, LIST_ITEMS];
 const WRITE_TOOLS = [
   "mcp__github__gh_upsert_issue",
   "mcp__github__gh_link_sub_issue",
   "mcp__github__gh_project_set_fields",
   "mcp__github__gh_post_discussion",
+  "mcp__github__gh_close_issue",
+  "mcp__github__gh_remove_project_item",
 ];
 
 /**
@@ -19,13 +23,13 @@ const WRITE_TOOLS = [
  * prompt frontmatter is advisory.
  */
 const TOOLS_BY_KEY: Record<string, string[]> = {
-  "repo-scout": ["Read", "Grep", "Glob", FIND, LIST],
-  "product-designer": ["Read", "Grep", "Glob", "WebSearch", "WebFetch", FIND, LIST],
-  "requirements-engineer": ["Read", "Grep", "Glob", FIND, LIST],
-  "competitive-analyst": ["Read", "Grep", "WebSearch", "WebFetch", FIND, LIST],
-  "gap-analyst": ["Read", "Grep", "Glob", FIND, LIST],
-  "critic-reviewer": ["Read", "Grep", FIND, LIST],
-  "issue-project-manager": ["Read", FIND, LIST, ...WRITE_TOOLS],
+  "repo-scout": ["Read", "Grep", "Glob", ...READ_TOOLS],
+  "product-designer": ["Read", "Grep", "Glob", "WebSearch", "WebFetch", ...READ_TOOLS],
+  "requirements-engineer": ["Read", "Grep", "Glob", ...READ_TOOLS],
+  "competitive-analyst": ["Read", "Grep", "WebSearch", "WebFetch", ...READ_TOOLS],
+  "gap-analyst": ["Read", "Grep", "Glob", ...READ_TOOLS],
+  "critic-reviewer": ["Read", "Grep", ...READ_TOOLS],
+  "issue-project-manager": ["Read", ...READ_TOOLS, ...WRITE_TOOLS],
 };
 
 /** Subagents the orchestrator may delegate to (everything except the orchestrator itself). */

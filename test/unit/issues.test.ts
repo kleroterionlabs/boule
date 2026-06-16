@@ -3,7 +3,7 @@ import pino from "pino";
 import { describe, expect, it } from "vitest";
 import type { AuthConfig } from "../../src/config/auth.js";
 import { createGitHubClient } from "../../src/github/client.js";
-import { listIssues, listOpenQuestionArtifacts, upsertIssue } from "../../src/github/issues.js";
+import { closeIssue, listIssues, listOpenQuestionArtifacts, upsertIssue } from "../../src/github/issues.js";
 import { idLabel, withBouleBlock } from "../../src/util/idempotency.js";
 import { server } from "../setup.js";
 
@@ -78,6 +78,21 @@ describe("upsertIssue (label-based dedup)", () => {
     const res = await upsertIssue(gh, spec({ dryRun: true }));
     expect(res.action).toBe("create");
     expect(res.ref.url).toBe("(dry-run)");
+  });
+});
+
+describe("closeIssue", () => {
+  it("PATCHes the issue closed with the given state_reason", async () => {
+    let body: { state?: string; state_reason?: string } | null = null;
+    server.use(
+      http.patch(`${ISSUES}/42`, async ({ request }) => {
+        body = (await request.json()) as { state?: string; state_reason?: string };
+        return HttpResponse.json({ number: 42, state: "closed" });
+      }),
+    );
+    const gh = await createGitHubClient(auth, log);
+    await closeIssue(gh, "acme", "widgets", 42, "not_planned");
+    expect(body).toEqual({ state: "closed", state_reason: "not_planned" });
   });
 });
 

@@ -6,8 +6,8 @@ import { ISSUE_TYPE_NAMES, OPERATIONAL_LABELS, kindLabel } from "../core/taxonom
 import type { ProjectFieldValues } from "../core/types.js";
 import type { GitHubClient } from "../github/client.js";
 import { postDiscussion, upsertDiscussion } from "../github/discussions.js";
-import { findByBouleId, linkSubIssue, listIssues, upsertIssue } from "../github/issues.js";
-import { addItem, setItemFields } from "../github/projects.js";
+import { closeIssue, findByBouleId, linkSubIssue, listIssues, upsertIssue } from "../github/issues.js";
+import { addItem, listProjectItems, removeProjectItem, setItemFields } from "../github/projects.js";
 import type { RepoContext } from "../github/resolve.js";
 import type { Ledger } from "../observability/ledger.js";
 import type { Logger } from "../observability/logger.js";
@@ -94,6 +94,24 @@ export function createGithubMcpServer(ctx: ToolContext) {
             return ok({ count: issues.length, truncated, issues });
           } catch (e) {
             return fail(`gh_list_issues error: ${String(e)}`);
+          }
+        },
+      ),
+
+      tool(
+        "gh_list_project_items",
+        "Read-only: list the Projects v2 board items with their backing issue (number/title/url/state) " +
+          "and current field values (Status, Kind, Priority, RICE, …) — the only way to read board " +
+          "state for status summaries, triage, and sync reconciliation. Returns each item's itemId " +
+          "(pass it to gh_remove_project_item to prune). Capped; narrow scope if `truncated` is true.",
+        { max: z.number().int().positive().max(1000).default(500) },
+        async (args) => {
+          try {
+            if (!rc.projectId) return fail("no Projects v2 board configured (set projectNumber)");
+            const { items, truncated } = await listProjectItems(gh, rc.projectId, args.max);
+            return ok({ count: items.length, truncated, items });
+          } catch (e) {
+            return fail(`gh_list_project_items error: ${String(e)}`);
           }
         },
       ),
@@ -285,6 +303,54 @@ export function createGithubMcpServer(ctx: ToolContext) {
             return ok({ ...ref, action: "create" });
           } catch (e) {
             return fail(`gh_post_discussion error: ${String(e)}`);
+          }
+        },
+      ),
+
+      tool(
+        "gh_close_issue",
+        "Close an artifact issue (by boule-id). Use reason 'not_planned' for duplicates/orphans " +
+          "(triage --dedupe, sync --prune) and 'completed' for finished work. Closing does NOT remove " +
+          "the issue from the board — call gh_remove_project_item for that.",
+        {
+          bouleId: z.string(),
+          reason: z.enum(["not_planned", "completed"]).default("not_planned"),
+        },
+        async (args) => {
+          try {
+            const issue = await findByBouleId(gh, rc.owner, rc.name, args.bouleId);
+            if (!issue) return fail(`no issue found for boule-id "${args.bouleId}"`);
+            if (ctx.dryRun)
+              return ok({ planned: "close", number: issue.number, reason: args.reason, dryRun: true });
+            await closeIssue(gh, rc.owner, rc.name, issue.number, args.reason);
+            ctx.ledger.record({
+              action: "issue.close",
+              bouleId: args.bouleId,
+              number: issue.number,
+              nodeId: issue.nodeId,
+              url: issue.url,
+            });
+            return ok({ closed: true, number: issue.number, reason: args.reason });
+          } catch (e) {
+            return fail(`gh_close_issue error: ${String(e)}`);
+          }
+        },
+      ),
+
+      tool(
+        "gh_remove_project_item",
+        "Remove an item from the Projects v2 board by its itemId (from gh_list_project_items). This " +
+          "only detaches the item from the board — it does NOT close or delete the backing issue.",
+        { itemId: z.string() },
+        async (args) => {
+          try {
+            if (!rc.projectId) return fail("no Projects v2 board configured (set projectNumber)");
+            if (ctx.dryRun) return ok({ planned: "remove", itemId: args.itemId, dryRun: true });
+            await removeProjectItem(gh, rc.projectId, args.itemId);
+            ctx.ledger.record({ action: "project.item.remove", itemId: args.itemId });
+            return ok({ removed: true, itemId: args.itemId });
+          } catch (e) {
+            return fail(`gh_remove_project_item error: ${String(e)}`);
           }
         },
       ),

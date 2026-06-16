@@ -8,7 +8,9 @@ export type LedgerAction =
   | "issue.noop"
   | "subissue.link"
   | "project.item"
+  | "project.item.remove"
   | "project.field"
+  | "issue.close"
   | "discussion.create"
   | "discussion.update";
 
