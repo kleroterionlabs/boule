@@ -1,6 +1,6 @@
 {
   "name": "@kleroterion/cli",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Autonomous CLI that drives Claude Agent SDK to produce product designs, requirements, competitive & gap analyses as typed GitHub issues.",
   "keywords": [
     "claude",
