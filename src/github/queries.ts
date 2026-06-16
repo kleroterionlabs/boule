@@ -37,7 +37,7 @@ query Categories($owner: String!, $name: String!) {
 
 export const ORG_ISSUE_TYPES = /* GraphQL */ `
 query OrgTypes($org: String!) {
-  organization(login: $org) { issueTypes(first: 25) { nodes { id name } } }
+  organization(login: $org) { id issueTypes(first: 25) { nodes { id name } } }
 }`;
 
 // Owner-agnostic: a Projects v2 board may belong to an Organization OR a User.

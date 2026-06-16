@@ -101,13 +101,14 @@ export async function createGitHubClient(
     withRest: (op, fn) => run(op, () => fn(rest)),
     graphql: <T>(op: OpKind, query: string, vars?: Record<string, unknown>) =>
       run<T>(op, async () => {
-        const withBudget = query.includes("rateLimit {")
-          ? query
-          : query.replace(/}\s*$/, "  rateLimit { limit remaining resetAt }\n}");
-        const data = (await gql(withBudget, vars)) as T & {
+        // `rateLimit` exists only on the Query type — NEVER inject it into mutations (op "write"),
+        // or every write fails with "Field 'rateLimit' doesn't exist on type 'Mutation'".
+        const track = op === "read" && !query.includes("rateLimit {");
+        const doc = track ? query.replace(/}\s*$/, "  rateLimit { limit remaining resetAt }\n}") : query;
+        const data = (await gql(doc, vars)) as T & {
           rateLimit?: { limit: number; remaining: number; resetAt: string };
         };
-        if (data?.rateLimit) {
+        if (track && data?.rateLimit) {
           budget.graphql.remaining = data.rateLimit.remaining;
           budget.graphql.limit = data.rateLimit.limit;
           budget.graphql.resetAt = Math.floor(new Date(data.rateLimit.resetAt).getTime() / 1000);

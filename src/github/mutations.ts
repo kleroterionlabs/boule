@@ -65,3 +65,11 @@ mutation CreateNumberField($projectId: ID!, $name: String!) {
     projectV2Field { ... on ProjectV2Field { id name } }
   }
 }`;
+
+// Org-level; requires the App to have organization administration access. Falls back to labels otherwise.
+export const CREATE_ISSUE_TYPE = /* GraphQL */ `
+mutation CreateIssueType($ownerId: ID!, $name: String!, $color: IssueTypeColor, $description: String) {
+  createIssueType(input: { ownerId: $ownerId, name: $name, color: $color, description: $description, isEnabled: true }) {
+    issueType { id name }
+  }
+}`;

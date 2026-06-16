@@ -10,20 +10,31 @@ import {
 import type { Logger } from "../observability/logger.js";
 import type { GitHubClient } from "./client.js";
 import { resolveCategories } from "./discussions.js";
-import { CREATE_NUMBER_FIELD, CREATE_SELECT_FIELD } from "./mutations.js";
+import { CREATE_ISSUE_TYPE, CREATE_NUMBER_FIELD, CREATE_SELECT_FIELD } from "./mutations.js";
 import { resolveProjectId } from "./nodeIds.js";
 import { readProjectSchema } from "./projects.js";
 import { ORG_ISSUE_TYPES } from "./queries.js";
 
 export interface BootstrapReport {
   labels: { created: string[]; existed: string[] };
-  issueTypes: { verified: string[]; missing: string[] };
+  issueTypes: { created: string[]; verified: string[]; missing: string[] };
   projectFields: { created: string[]; existed: string[] };
   discussions: { verified: string[]; missing: string[] };
   manualActions: string[];
 }
 
 const SELECT_COLORS = ["GRAY", "BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PURPLE", "PINK"];
+
+/** Issue-type colors (IssueTypeColor enum). Feature/Task exist by default; these are Boule's custom ones. */
+const ISSUE_TYPE_COLORS: Record<string, string> = {
+  Design: "BLUE",
+  Requirement: "GREEN",
+  Competitor: "ORANGE",
+  Gap: "RED",
+  Epic: "PURPLE",
+  Feature: "GRAY",
+  Task: "GRAY",
+};
 
 /** Deterministic label color by category prefix (hex without '#'). */
 function labelColor(name: string): string {
@@ -50,7 +61,7 @@ export async function bootstrap(
   const [owner, name] = cfg.repo.split("/") as [string, string];
   const report: BootstrapReport = {
     labels: { created: [], existed: [] },
-    issueTypes: { verified: [], missing: [] },
+    issueTypes: { created: [], verified: [], missing: [] },
     projectFields: { created: [], existed: [] },
     discussions: { verified: [], missing: [] },
     manualActions: [],
@@ -71,8 +82,8 @@ export async function bootstrap(
     }
   }
 
-  // 2. Issue types — org-level, NOT API-creatable here; verify and report any missing.
-  await verifyIssueTypes(gh, owner, report);
+  // 2. Issue types — org-level; create Boule's custom types if the App has org-admin access.
+  await ensureIssueTypes(gh, owner, opts.dryRun, report);
 
   // 3. Discussion categories — verify only (cannot be created via API).
   await verifyCategories(gh, owner, name, cfg, report);
@@ -88,23 +99,58 @@ export async function bootstrap(
   return report;
 }
 
-async function verifyIssueTypes(gh: GitHubClient, owner: string, report: BootstrapReport): Promise<void> {
+async function ensureIssueTypes(
+  gh: GitHubClient,
+  owner: string,
+  dryRun: boolean,
+  report: BootstrapReport,
+): Promise<void> {
+  let ownerId: string | undefined;
   let present = new Set<string>();
   try {
     const data = await gh.graphql<{
-      organization: { issueTypes: { nodes: { name: string }[] } } | null;
+      organization: { id: string; issueTypes: { nodes: { name: string }[] } } | null;
     }>("read", ORG_ISSUE_TYPES, { org: owner });
+    ownerId = data.organization?.id;
     present = new Set((data.organization?.issueTypes.nodes ?? []).map((n) => n.name));
   } catch {
-    /* user-owned repo or no org access — types unavailable; fall back to kind labels */
+    /* user-owned repo or no org access — types unavailable */
   }
+
+  let createError: string | undefined;
   for (const typeName of Object.values(ISSUE_TYPE_NAMES)) {
-    if (present.has(typeName)) report.issueTypes.verified.push(typeName);
-    else report.issueTypes.missing.push(typeName);
+    if (present.has(typeName)) {
+      report.issueTypes.verified.push(typeName);
+      continue;
+    }
+    if (!ownerId || dryRun) {
+      report.issueTypes[ownerId && dryRun ? "created" : "missing"].push(typeName);
+      continue;
+    }
+    try {
+      await gh.graphql("write", CREATE_ISSUE_TYPE, {
+        ownerId,
+        name: typeName,
+        color: ISSUE_TYPE_COLORS[typeName] ?? "GRAY",
+        description: `Boule ${typeName} artifact`,
+      });
+      report.issueTypes.created.push(typeName);
+    } catch (e) {
+      report.issueTypes.missing.push(typeName);
+      createError ??= /admin:org|INSUFFICIENT_SCOPES|not accessible/i.test(String(e))
+        ? "the App needs Organization administration (admin:org) write access"
+        : String(e).slice(0, 140);
+    }
   }
+
   if (report.issueTypes.missing.length) {
+    const why = createError
+      ? `Couldn't create issue types — ${createError}.`
+      : !ownerId
+        ? "Issue types are org-only and unavailable for this owner."
+        : "";
     report.manualActions.push(
-      `Create org Issue Types in Settings → Issue types: ${report.issueTypes.missing.join(", ")} (Boule falls back to kind:* labels until then).`,
+      `${why} Create [${report.issueTypes.missing.join(", ")}] in org Settings → Issue types, or grant the App admin:org so \`boule bootstrap\` self-provisions them. Until then Boule uses kind:* labels.`,
     );
   }
 }
