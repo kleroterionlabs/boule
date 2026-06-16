@@ -156,17 +156,17 @@
       "description": "Authoring/owning Boule subagent: Critic / Reviewer. Multi-valued."
     },
     {
-      "name": "boule/generated",
+      "name": "boule:managed",
       "color": "0052CC",
-      "description": "Operational: issue was authored by Boule. Lets humans filter all bot output (label:boule/generated). Applied to every Boule-created issue."
+      "description": "Operational: issue is managed by Boule. Lets humans filter all bot output (label:boule:managed). Applied to every Boule-created issue."
     },
     {
-      "name": "boule/needs-human",
+      "name": "boule:needs-human",
       "color": "E11D48",
       "description": "Operational: escalation flag — Boule could not satisfy a gate (e.g. failed 29148 repair loop) and requires human decision."
     },
     {
-      "name": "boule/superseded",
+      "name": "boule:superseded",
       "color": "6E7781",
       "description": "Operational: artifact replaced by a newer one rather than deleted; set during supersession instead of closing without trace."
     }

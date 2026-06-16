@@ -16,8 +16,6 @@ export const ISSUE_TYPE_NAMES = {
 /** Fallback kind labels used when native Issue Types are unavailable. */
 export const kindLabel = (kind: ArtifactKind): string => `kind:${kind}`;
 
-export const ARTIFACT_LABEL = (kind: ArtifactKind): string => `artifact:${kind}`;
-
 export const OPERATIONAL_LABELS = {
   managed: "boule:managed",
   needsHuman: "boule:needs-human",
@@ -26,6 +24,10 @@ export const OPERATIONAL_LABELS = {
   halt: "boule:halt",
 } as const;
 
+// TWO distinct status models — do not conflate:
+//  • STATUS_LABELS (here)  = an artifact's ACCEPTANCE lifecycle, carried on the Issue as a label.
+//  • STATUS_OPTIONS (below) = the WORKFLOW column on the Projects v2 board (the source of truth for
+//    where work sits). The board field drives planning; the label records review state on the issue.
 export const STATUS_LABELS = [
   "status:draft",
   "status:needs-review",

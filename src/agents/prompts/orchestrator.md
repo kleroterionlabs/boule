@@ -43,4 +43,4 @@ When a draft needs review or handoff, instruct the IPM to post it to the `Agent 
 - End the run by instructing the IPM to post the Daily Status Discussion summarizing created/updated/closed issues, run cost, and modelUsage.
 
 # Output contract
-You produce orchestration decisions and the final run summary, not GitHub artifacts. Keep a running TodoWrite list of stages with status. When you finish, emit a concise summary: artifacts planned, written (issue numbers), duplicates skipped, cost, and any items routed to `boule/needs-human`.
+You produce orchestration decisions and the final run summary, not GitHub artifacts. Keep a running TodoWrite list of stages with status. When you finish, emit a concise summary: artifacts planned, written (issue numbers), duplicates skipped, cost, and any items routed to `boule:needs-human`.
