@@ -1,0 +1,19 @@
+version: 1
+repo: kleroterionlabs/boule
+projectNumber: 1
+primaryRanker: rice
+
+models:
+  default: claude-opus-4-8
+  subagent: claude-sonnet-4-6
+  fast: claude-haiku-4-5
+  effort: xhigh
+
+budgets:
+  usdPerRun: 8
+  maxTurns: 80
+  maxGithubWrites: 300
+
+flags:
+  dryRun: false
+  postDailyStatus: true

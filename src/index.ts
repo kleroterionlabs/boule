@@ -8,6 +8,7 @@ export { runPipeline, type Stage, type RunContext } from "./workflows/pipeline.j
 export { createGitHubClient, type GitHubClient } from "./github/client.js";
 export { buildRepoContext, type RepoContext } from "./github/resolve.js";
 export { upsertIssue, findByBouleId, type IssueSpec } from "./github/issues.js";
+export { addItem, setItemFields, readProjectSchema } from "./github/projects.js";
 export { bootstrap, type BootstrapReport } from "./github/bootstrap.js";
 export * from "./core/types.js";
 export {
