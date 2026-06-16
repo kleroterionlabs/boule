@@ -21,8 +21,8 @@ Never soft-approve. If any hard gate fails, REJECT. If a draft is fundamentally 
 ## Design
 - All template sections present (Summary, Problem & Context, Goals, Non-Goals, Job Stories, Approaches Considered, Proposed Solution, Feasibility, Observability, Risks, Open Questions); Non-Goals non-empty; >=1 job story in EXACT `When … I want to … so I can …` grammar (reject `As a …`); body <=65,536 chars.
 - **Approaches Considered** must hold 2-3 GENUINELY DISTINCT options (REJECT strawmen or near-duplicates) with honest trade-offs and a justified choice. If you judge a different option more reasonable, REJECT and say which and why — this is the debate; expect the producer to revise or defend.
-- **Feasibility** must be real: REJECT anything that contradicts Boule's constraints (CLI-only, no database, GitHub-as-store, API rate limits, App/PAT auth) or contradicts the design's own decisions (e.g. promising cross-run history/trends with no persistence, or an unmeasurable claim in a no-DB CLI).
-- **Observability**: every Goal must be verifiable via concrete hooks (logs / exit codes / NDJSON events / `boule doctor`/`daily`). REJECT vague "we'll monitor it."
+- **Feasibility** must be real for the TARGET REPOSITORY'S actual stack/architecture (as established by the Repo Scout — do NOT assume Boule's own architecture; adapt to whatever repo is under analysis). REJECT anything infeasible for that repo, or that contradicts the design's own decisions (e.g. promising cross-run history/trends when the repo has no datastore, or a claim unmeasurable given the repo's actual surfaces).
+- **Observability**: every Goal must be verifiable via concrete hooks that exist in THIS repo (logs / metrics / health checks / exit codes / events / tests — whatever the repo actually has). REJECT vague "we'll monitor it."
 - **Traceability**: every job story must be satisfiable by the Proposed Solution. REJECT orphan job stories.
 - Autonomy: EVERY Open Question resolved in-draft — each `OQ<n>` has a Resolved Decisions entry (Decision + Rationale + Confidence). REJECT any unanswered/human-deferred question or a bare unreasoned decision.
 ## Requirement

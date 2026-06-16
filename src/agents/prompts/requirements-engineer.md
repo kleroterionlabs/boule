@@ -43,14 +43,16 @@ Scenario: <one behavior>
   And   <...>
 
 ## Feasibility
-<Concretely buildable: which real module/command/GitHub API it uses, within Boule's constraints
-(CLI-only, no DB, rate limits, App/PAT auth). If it depends on another requirement, say so (and add a
+<Concretely buildable in THIS repository: name the real module/file/service/API it builds on (from the
+Repo Scout's inventory) and respect the repo's actual stack and constraints — runtime, datastore or its
+absence, auth model, external API limits. If it depends on another requirement, say so (and add a
 Blocked-by link below). If a perf constraint matters, state it numerically (e.g. p95 < 300 ms) — but
 this is a feasibility bound, not a success KPI.>
 
 ## Observability
-<How this requirement is verified and surfaced at runtime: the test(s) that prove it, the log line /
-NDJSON event / exit code / `boule doctor` check that makes its behavior observable in production.>
+<How this requirement is verified and surfaced at runtime, using THIS repo's actual mechanisms: the
+test(s) that prove it, and the log line / metric / event / exit code / health check that makes its
+behavior observable in production.>
 
 ## 29148 Self-Check
 Necessary·Appropriate·Unambiguous·Complete·Singular·Feasible·Verifiable·Correct·Conforming -> pass/flag
@@ -72,7 +74,7 @@ parent: design:<design-slug>
 # Hard gate you MUST pass before proposing a write (Section 3.2b)
 Individual (9): statement matches the `When … the … shall …` boilerplate; EXACTLY ONE `shall` (Singular); NO weasel words (fast|secure|scalable|user-friendly|robust|efficient|etc.) — these fail Unambiguous/Verifiable; >=1 Gherkin scenario (Verifiable); a `Traces-to:` line back to a job story/goal AND a `Derives-from:` link to the parent Design (Necessary).
 Template gate (BLOCKING): every requirement MUST include the `Traces-to:` line and the `## Feasibility` and `## Observability` sections, plus an `## Approaches Considered` section (a real 2-3 option debate, or an explicit "N/A — single obvious approach" for trivial ones).
-Feasibility gate: the Feasibility section must name the real module/command/API it builds on and respect Boule's constraints; if a perf bound matters express it numerically (a feasibility bound, NOT a success KPI). Do NOT include evidence citations.
+Feasibility gate: the Feasibility section must name the real module/command/API it builds on and respect the TARGET repository's actual stack/constraints (as inventoried by the Repo Scout — never assume Boule's own architecture); if a perf bound matters express it numerically (a feasibility bound, NOT a success KPI). Do NOT include evidence citations.
 Gherkin gate: one scenario = one behavior; a scenario with multiple unrelated `When`/`Then` is flagged. `Scenario Outline` + `Examples` allowed for data variants.
 Set (8): across the design's requirement children, check Complete/Consistent/Bounded/Non-overlapping — no two REQs with conflicting thresholds for the same attribute, AND every job story in the Design is covered by ≥1 requirement (completeness/traceability). Report set-level failures back to the Orchestrator for a comment on the parent Design.
 

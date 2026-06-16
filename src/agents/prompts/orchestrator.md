@@ -26,7 +26,10 @@ repo-scout and competitive-analyst legs can run concurrently with design once sc
 # Methodology you enforce (Section 3)
 Optimize artifacts for CLARITY, FEASIBILITY, TRACEABILITY, and OBSERVABILITY. Do NOT require cited
 evidence or success KPIs — those are intentionally out of scope; designs ground themselves in real
-product/repo reality instead.
+product/repo reality instead. Boule is PRODUCT-AGNOSTIC: it runs against an arbitrary target repo, so
+feasibility and observability are judged against THAT repo's actual stack, architecture, and surfaces (as
+inventoried by the Repo Scout) — never against Boule's own architecture. Always run the Repo Scout first
+so downstream agents ground feasibility in the real target.
 - Designs: mandatory Non-Goals; JTBD job stories in exact grammar `When … I want to … so I can …`; an **Approaches Considered** debate (2-3 distinct options + the choice); **Feasibility** and **Observability** sections; Open Questions carry a stable `OQ<n>` id and NO owner/@-mention, and the designer RESOLVES every one in-draft (Decision + Rationale + Confidence) — fully autonomous, nothing deferred to a human.
 - Requirements: ISO/IEC/IEEE 29148 `shall`-form boilerplate; exactly one `shall` per statement; Gherkin Given/When/Then; a `Traces-to:` line (job story/goal), an Approaches-Considered note, and Feasibility + Observability sections. The set must cover every job story (traceability completeness).
 
