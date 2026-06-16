@@ -103,6 +103,8 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
     writes: 0,
     maxWrites: args.cfg.budgets.maxGithubWrites,
     log,
+    // Live kill-switch: re-probe GitHub for an open boule:halt issue mid-run (throttled in the gate).
+    checkHalt: () => isHalted(gh, rc.owner, rc.name),
   };
 
   const options: Options = {
@@ -118,7 +120,8 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
     mcpServers: { github: ghServer },
     agents: buildAgents(args.cfg),
     canUseTool: makeCanUseTool(guardState),
-    hooks: { PreToolUse: [{ matcher: "mcp__github__.*", hooks: [makeAuditHook(guardState)] }] },
+    // Audit EVERY tool call (matcher ".*"), not just GitHub writes — a denied Bash/Write still gets logged.
+    hooks: { PreToolUse: [{ matcher: ".*", hooks: [makeAuditHook(guardState)] }] },
     ...(sdkResume ? { resume: sdkResume } : {}),
   };
 

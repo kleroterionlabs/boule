@@ -9,7 +9,6 @@ export interface CliFlags {
   repo?: string;
   project?: number;
   model?: string;
-  effort?: string;
   budget?: number;
   maxTurns?: number;
   dryRun?: boolean;
@@ -41,11 +40,8 @@ function mapCli(cli: CliFlags): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (cli.repo) out.repo = cli.repo;
   if (cli.project !== undefined) out.projectNumber = cli.project;
-  if (cli.model || cli.effort) {
-    out.models = {
-      ...(cli.model && { default: cli.model, orchestrator: cli.model }),
-      ...(cli.effort && { effort: cli.effort }),
-    };
+  if (cli.model) {
+    out.models = { default: cli.model, orchestrator: cli.model };
   }
   if (cli.budget !== undefined || cli.maxTurns !== undefined) {
     out.budgets = {
