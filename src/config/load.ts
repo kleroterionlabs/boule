@@ -42,7 +42,10 @@ function mapCli(cli: CliFlags): Record<string, unknown> {
   if (cli.repo) out.repo = cli.repo;
   if (cli.project !== undefined) out.projectNumber = cli.project;
   if (cli.model || cli.effort) {
-    out.models = { ...(cli.model && { default: cli.model }), ...(cli.effort && { effort: cli.effort }) };
+    out.models = {
+      ...(cli.model && { default: cli.model, orchestrator: cli.model }),
+      ...(cli.effort && { effort: cli.effort }),
+    };
   }
   if (cli.budget !== undefined || cli.maxTurns !== undefined) {
     out.budgets = {

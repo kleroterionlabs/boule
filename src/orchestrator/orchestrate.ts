@@ -45,7 +45,7 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
   };
 
   const options: Options = {
-    model: args.cfg.models.default,
+    model: args.cfg.models.orchestrator,
     fallbackModel: args.cfg.models.subagent,
     maxTurns: args.cfg.budgets.maxTurns,
     maxBudgetUsd: args.cfg.budgets.usdPerRun, // ENFORCED hard cap

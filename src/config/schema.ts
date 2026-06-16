@@ -17,6 +17,9 @@ export const ConfigSchema = z
 
     models: z
       .object({
+        // The top-level coordinator. Its turns dominate run cost — drop to claude-sonnet-4-6 for
+        // ~40–50% cheaper runs; the design/critic SUBAGENTS keep their own (Opus) models regardless.
+        orchestrator: ModelId.default("claude-opus-4-8"),
         default: ModelId.default("claude-opus-4-8"),
         subagent: ModelId.default("claude-sonnet-4-6"),
         fast: ModelId.default("claude-haiku-4-5"),

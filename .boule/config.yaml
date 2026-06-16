@@ -4,6 +4,7 @@ projectNumber: 1
 primaryRanker: rice
 
 models:
+  orchestrator: claude-sonnet-4-6 # coordinator — cheap; design/critic subagents stay on Opus
   default: claude-opus-4-8
   subagent: claude-sonnet-4-6
   fast: claude-haiku-4-5
