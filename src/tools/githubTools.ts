@@ -6,7 +6,15 @@ import { ISSUE_TYPE_NAMES, OPERATIONAL_LABELS, kindLabel } from "../core/taxonom
 import type { ProjectFieldValues } from "../core/types.js";
 import type { GitHubClient } from "../github/client.js";
 import { postDiscussion, upsertDiscussion } from "../github/discussions.js";
-import { closeIssue, findByBouleId, linkSubIssue, listIssues, upsertIssue } from "../github/issues.js";
+import {
+  addBlockedBy,
+  closeIssue,
+  findByBouleId,
+  linkSubIssue,
+  listIssues,
+  setIssueStatus,
+  upsertIssue,
+} from "../github/issues.js";
 import { addItem, listProjectItems, removeProjectItem, setItemFields } from "../github/projects.js";
 import type { RepoContext } from "../github/resolve.js";
 import type { Ledger } from "../observability/ledger.js";
@@ -34,6 +42,15 @@ const KIND = z.enum([
   "task",
   "spike",
 ]);
+
+// Short status names the agent passes → `status:*` label (see STATUS_LABELS) and board Status column.
+const STATUS = z.enum(["draft", "needs-review", "accepted", "superseded"]);
+const BOARD_FOR_STATUS: Record<z.infer<typeof STATUS>, string | undefined> = {
+  draft: "In Design",
+  "needs-review": "In Review",
+  accepted: "Ready",
+  superseded: undefined, // superseded artifacts are typically closed, not re-columned
+};
 
 const ok = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data) }],
@@ -358,6 +375,93 @@ export function createGithubMcpServer(ctx: ToolContext) {
             return ok({ removed: true, itemId: args.itemId });
           } catch (e) {
             return fail(`gh_remove_project_item error: ${String(e)}`);
+          }
+        },
+      ),
+
+      tool(
+        "gh_set_status",
+        "Transition an EXISTING artifact's lifecycle status by boule-id. This is the ONLY way to " +
+          "re-label an existing issue — gh_upsert_issue rewrites only the body on update, never labels. " +
+          "Swaps the `status:*` label for the target and, when a board is configured, sets the board " +
+          "Status column to match (accepted→Ready, needs-review→In Review, draft→In Design). Use it to " +
+          "accept an existing design/requirement after the Critic approves.",
+        { bouleId: z.string(), status: STATUS },
+        async (args) => {
+          try {
+            const issue = await findByBouleId(gh, rc.owner, rc.name, args.bouleId);
+            if (!issue) return fail(`no issue found for boule-id "${args.bouleId}"`);
+            const column = BOARD_FOR_STATUS[args.status];
+            if (ctx.dryRun) {
+              return ok({
+                planned: "status",
+                number: issue.number,
+                status: args.status,
+                board: column ?? null,
+                dryRun: true,
+              });
+            }
+            await setIssueStatus(gh, rc.owner, rc.name, issue.number, `status:${args.status}`);
+            if (column && rc.projectId) {
+              const itemId = await addItem(gh, rc.projectId, issue.nodeId);
+              await setItemFields(gh, rc.projectId, itemId, rc.projectSchema, {
+                Status: column,
+              } as ProjectFieldValues);
+            }
+            ctx.ledger.record({
+              action: "issue.status",
+              bouleId: args.bouleId,
+              number: issue.number,
+              nodeId: issue.nodeId,
+              url: issue.url,
+            });
+            return ok({ number: issue.number, status: args.status, board: column ?? null });
+          } catch (e) {
+            return fail(`gh_set_status error: ${String(e)}`);
+          }
+        },
+      ),
+
+      tool(
+        "gh_add_dependency",
+        "Record a native GitHub 'blocked by' dependency between two artifacts (by boule-id): the blocked " +
+          "artifact cannot start until the prerequisite is done. Use for prerequisite ordering among " +
+          "siblings (e.g. a requirement that builds on another). Idempotent — re-adding an existing link " +
+          "is a no-op.",
+        {
+          bouleId: z.string().describe("the blocked artifact"),
+          blockedByBouleId: z.string().describe("the prerequisite that must complete first"),
+        },
+        async (args) => {
+          try {
+            if (args.bouleId === args.blockedByBouleId) return fail("an artifact cannot block itself");
+            const [blocked, blocking] = await Promise.all([
+              findByBouleId(gh, rc.owner, rc.name, args.bouleId),
+              findByBouleId(gh, rc.owner, rc.name, args.blockedByBouleId),
+            ]);
+            if (!blocked || !blocking)
+              return fail("blocked or prerequisite issue not found for the given boule-id(s)");
+            if (ctx.dryRun) {
+              return ok({
+                planned: "dependency",
+                blocked: blocked.number,
+                blockedBy: blocking.number,
+                dryRun: true,
+              });
+            }
+            const added = await addBlockedBy(gh, rc.owner, rc.name, blocked.number, blocking.id);
+            if (added) {
+              ctx.ledger.record({
+                action: "issue.dependency",
+                bouleId: args.bouleId,
+                number: blocked.number,
+                nodeId: blocked.nodeId,
+                url: blocked.url,
+              });
+            }
+            return ok({ blocked: blocked.number, blockedBy: blocking.number, added });
+          } catch (e) {
+            return fail(`gh_add_dependency error: ${String(e)}`);
           }
         },
       ),

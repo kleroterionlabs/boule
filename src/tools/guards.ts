@@ -20,6 +20,8 @@ const WRITE_TOOLS = new Set([
   "mcp__github__gh_post_discussion",
   "mcp__github__gh_close_issue",
   "mcp__github__gh_remove_project_item",
+  "mcp__github__gh_set_status",
+  "mcp__github__gh_add_dependency",
 ]);
 
 // Boule's ONLY mutation path is the GitHub MCP tools. Shell and file mutation must never run — deny

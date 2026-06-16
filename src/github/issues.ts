@@ -1,4 +1,4 @@
-import { OPERATIONAL_LABELS, kindLabel } from "../core/taxonomy.js";
+import { OPERATIONAL_LABELS, STATUS_LABELS, kindLabel } from "../core/taxonomy.js";
 // src/github/issues.ts — the dedupe heart. Every artifact write goes through upsertIssue().
 // Dedup is by a UNIQUE per-artifact label via the REST List Issues endpoint (strongly consistent,
 // exact-match) — NOT issue search, which is tokenized full-text + eventually consistent and would
@@ -25,6 +25,7 @@ export interface IssueSpec {
 
 interface FoundIssue {
   number: number;
+  id: number; // REST database id — required by the issue-dependencies endpoint (it keys on issue_id)
   nodeId: string;
   url: string;
   body: string;
@@ -48,7 +49,7 @@ async function listByLabel(
   );
   return res.data
     .filter((i) => !i.pull_request)
-    .map((i) => ({ number: i.number, nodeId: i.node_id, url: i.html_url, body: i.body ?? "" }));
+    .map((i) => ({ number: i.number, id: i.id, nodeId: i.node_id, url: i.html_url, body: i.body ?? "" }));
 }
 
 const lowest = (xs: FoundIssue[]): FoundIssue => xs.reduce((a, b) => (a.number <= b.number ? a : b));
@@ -214,6 +215,57 @@ export async function closeIssue(
   );
 }
 
+/**
+ * Transition an issue's lifecycle status label (e.g. needs-review → accepted). `gh_upsert_issue`
+ * only rewrites the body on update, so this is the ONLY way to re-label an existing issue: it swaps
+ * whichever `status:*` label is present for the target, preserving all non-status labels.
+ */
+export async function setIssueStatus(
+  gh: GitHubClient,
+  owner: string,
+  name: string,
+  number: number,
+  status: (typeof STATUS_LABELS)[number],
+): Promise<void> {
+  const cur = await gh.withRest("read", (o) =>
+    o.issues.listLabelsOnIssue({ owner, repo: name, issue_number: number, per_page: 100 }),
+  );
+  const statusSet = new Set<string>(STATUS_LABELS);
+  const kept = cur.data.map((l) => l.name).filter((n) => !statusSet.has(n));
+  await gh.withRest("write", (o) =>
+    o.issues.setLabels({ owner, repo: name, issue_number: number, labels: [...kept, status] }),
+  );
+}
+
+/** Record a native "blocked by" dependency: `blocked` cannot start until `blockingId` is done.
+ *  Idempotent — re-adding an existing link is a no-op (so re-runs converge). */
+export async function addBlockedBy(
+  gh: GitHubClient,
+  owner: string,
+  name: string,
+  blockedNumber: number,
+  blockingId: number,
+): Promise<boolean> {
+  const existing = await gh.withRest("read", (o) =>
+    o.request("GET /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by", {
+      owner,
+      repo: name,
+      issue_number: blockedNumber,
+      per_page: 100,
+    }),
+  );
+  if ((existing.data as Array<{ id: number }>).some((d) => d.id === blockingId)) return false;
+  await gh.withRest("write", (o) =>
+    o.request("POST /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by", {
+      owner,
+      repo: name,
+      issue_number: blockedNumber,
+      issue_id: blockingId,
+    }),
+  );
+  return true;
+}
+
 /** create | noop | update — never silently overwrites; posts an audit comment on update. */
 export async function upsertIssue(gh: GitHubClient, spec: IssueSpec): Promise<UpsertResult> {
   const dedupe = idLabel(spec.bouleId);
@@ -293,6 +345,7 @@ async function createIssue(
   );
   return {
     number: res.data.number,
+    id: res.data.id,
     nodeId: res.data.node_id,
     url: res.data.html_url,
     body: res.data.body ?? body,

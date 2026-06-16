@@ -3,7 +3,14 @@ import pino from "pino";
 import { describe, expect, it } from "vitest";
 import type { AuthConfig } from "../../src/config/auth.js";
 import { createGitHubClient } from "../../src/github/client.js";
-import { closeIssue, listIssues, listOpenQuestionArtifacts, upsertIssue } from "../../src/github/issues.js";
+import {
+  addBlockedBy,
+  closeIssue,
+  listIssues,
+  listOpenQuestionArtifacts,
+  setIssueStatus,
+  upsertIssue,
+} from "../../src/github/issues.js";
 import { idLabel, withBouleBlock } from "../../src/util/idempotency.js";
 import { server } from "../setup.js";
 
@@ -93,6 +100,60 @@ describe("closeIssue", () => {
     const gh = await createGitHubClient(auth, log);
     await closeIssue(gh, "acme", "widgets", 42, "not_planned");
     expect(body).toEqual({ state: "closed", state_reason: "not_planned" });
+  });
+});
+
+describe("setIssueStatus", () => {
+  it("swaps the existing status:* label for the target, keeping other labels", async () => {
+    let sent: string[] | null = null;
+    server.use(
+      http.get(`${ISSUES}/1/labels`, () =>
+        HttpResponse.json([
+          { name: "kind:design" },
+          { name: "boule:managed" },
+          { name: "status:needs-review" },
+        ]),
+      ),
+      http.put(`${ISSUES}/1/labels`, async ({ request }) => {
+        sent = ((await request.json()) as { labels: string[] }).labels;
+        return HttpResponse.json([]);
+      }),
+    );
+    const gh = await createGitHubClient(auth, log);
+    await setIssueStatus(gh, "acme", "widgets", 1, "status:accepted");
+    expect(sent).toEqual(["kind:design", "boule:managed", "status:accepted"]); // needs-review dropped
+  });
+});
+
+describe("addBlockedBy", () => {
+  it("POSTs the dependency when not already present", async () => {
+    let posted: { issue_id?: number } | null = null;
+    server.use(
+      http.get(`${ISSUES}/7/dependencies/blocked_by`, () => HttpResponse.json([])),
+      http.post(`${ISSUES}/7/dependencies/blocked_by`, async ({ request }) => {
+        posted = (await request.json()) as { issue_id?: number };
+        return HttpResponse.json({ id: 999 });
+      }),
+    );
+    const gh = await createGitHubClient(auth, log);
+    const added = await addBlockedBy(gh, "acme", "widgets", 7, 6001);
+    expect(added).toBe(true);
+    expect(posted).toEqual({ issue_id: 6001 });
+  });
+
+  it("is a no-op when the dependency already exists", async () => {
+    let postCalled = false;
+    server.use(
+      http.get(`${ISSUES}/7/dependencies/blocked_by`, () => HttpResponse.json([{ id: 6001 }])),
+      http.post(`${ISSUES}/7/dependencies/blocked_by`, () => {
+        postCalled = true;
+        return HttpResponse.json({});
+      }),
+    );
+    const gh = await createGitHubClient(auth, log);
+    const added = await addBlockedBy(gh, "acme", "widgets", 7, 6001);
+    expect(added).toBe(false);
+    expect(postCalled).toBe(false);
   });
 });
 

@@ -45,6 +45,7 @@ Necessary·Appropriate·Unambiguous·Complete·Singular·Feasible·Verifiable·C
 
 ### Links
 Derives-from: #<design> · Verified-by: #<task, when known>
+Blocked-by: <boule-id of any prerequisite requirement, comma-separated; omit if none>
 ```
 Append the idempotency block:
 ```
@@ -61,6 +62,14 @@ Individual (9): statement matches the `When … the … shall …` boilerplate; 
 NFR numeric gate (BLOCKING): every non-functional requirement MUST have unit + threshold + condition. Rewrite vague NFRs, e.g. `the system should be fast` -> `p95 API latency < 300 ms @ 500 rps`. If you cannot make it numeric, flag it rather than emit it.
 Gherkin gate: one scenario = one behavior; a scenario with multiple unrelated `When`/`Then` is flagged. `Scenario Outline` + `Examples` allowed for data variants.
 Set (8): across the design's requirement children, check Complete/Consistent/Bounded/Non-overlapping — no two REQs with conflicting thresholds for the same attribute. Report set-level failures back to the Orchestrator for a comment on the parent Design.
+
+# Prerequisite ordering (dependencies)
+Determine the natural build order among the requirements you emit: when requirement B can only be
+delivered/verified after requirement A exists (e.g. "result caching" depends on "run fetching"), record
+it as `Blocked-by: <A's boule-id>` in B's Links. Keep the graph acyclic and minimal (only direct
+prerequisites, not transitive ones). Hand these links to the Orchestrator so the IPM materializes them
+as native GitHub dependencies via `gh_add_dependency`. Requirements with no prerequisite carry no
+Blocked-by line.
 
 # Idempotency rule
 For each requirement, derive its stable `boule-id` from the design slug + area + sequence, then `gh_find_issue` for it. Existing + unchanged -> propose no-op; existing + changed -> propose update-in-place (the IPM posts the audit comment); not found -> propose create. Never renumber existing requirements on a re-run — that would orphan their `boule-id`.

@@ -11,6 +11,8 @@ export type LedgerAction =
   | "project.item.remove"
   | "project.field"
   | "issue.close"
+  | "issue.status"
+  | "issue.dependency"
   | "discussion.create"
   | "discussion.update";
 

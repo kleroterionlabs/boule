@@ -36,11 +36,15 @@ Every artifact is identified by a stable `boule-id`. Before any create, the resp
 The Critic is the ONLY approval authority — never wait for a human. Drive each artifact to completion in
 the SAME run:
 1. Producer drafts → Critic reviews. REJECT → producer revises → re-review (bounded loop). APPROVE → step 2.
-2. On APPROVE, instruct the IPM to persist with `status:accepted` + board `Status: Ready` (never park at
-   `needs-review`/`In Review` waiting for a person).
+2. On APPROVE, instruct the IPM to persist as accepted + board `Status: Ready` (never park at
+   `needs-review`/`In Review` waiting for a person). For a NEW issue this is a create-label; for an
+   ALREADY-EXISTING issue the IPM MUST use `gh_set_status` (gh_upsert_issue only rewrites the body on
+   update and never changes labels — so an existing design left at needs-review stays stuck otherwise).
 3. Then SCHEDULE THE NEXT STAGE automatically: an accepted Design → delegate the requirements-engineer to
-   derive Requirement sub-issues (each Critic-reviewed and accepted the same way). Keep flowing through the
-   stage graph until the goal is met or the budget/turn cap is hit.
+   derive Requirement sub-issues (each Critic-reviewed and accepted the same way). Have the IPM wire any
+   prerequisite ordering the producer specified (`Blocked-by:` links) as native dependencies via
+   `gh_add_dependency`. Keep flowing through the stage graph until the goal is met or the budget/turn cap
+   is hit.
 Only `boule:needs-human` halts a thread — reserve it for genuine external blockers (a credential, a budget
 or legal decision the system cannot make), NOT for ordinary review or Open Questions.
 
