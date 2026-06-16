@@ -560,7 +560,7 @@ Informed-by-gap: #…
 
 #### (b) Acceptance / quality bar
 
-A design is **`status:accepted`** only if: problem statement has ≥1 sourced evidence; **Non-Goals is non-empty**; ≥1 job story in exact JTBD grammar (`When … I want to … so I can …` — a regex validator rejects role-based "As a…" here); every KPI is numeric with baseline+target+instrumentation; every Open Question has an owner. Body ≤ 65,536 chars (else split UX-flow appendix into a sub-issue).
+A design is **`status:accepted`** only if: problem statement has ≥1 sourced evidence; **Non-Goals is non-empty**; ≥1 job story in exact JTBD grammar (`When … I want to … so I can …` — a regex validator rejects role-based "As a…" here); every KPI is numeric with baseline+target+instrumentation; each Open Question carries a stable `OQ<n>` id and **no owner / @-mention** (owners are intentionally not assigned — Boule must never tag users it can't verify; questions are answered later by a human via `boule resolve <boule-id>`, which moves them to a "Resolved Decisions" section and records the decision). Body ≤ 65,536 chars (else split UX-flow appendix into a sub-issue).
 
 #### (c) Inputs gathered
 
@@ -1594,6 +1594,7 @@ Generation commands accept `--brief -` (read brief from stdin) for CI piping, an
 | `boule triage` | `--since <ISO\|7d>` `--assign` `--dedupe` | Agent passes over open issues: assign missing `kind:`/issue-type, attach orphans to parents, mark duplicates with `state_reason:duplicate`. |
 | `boule status` | `--project` `--json` | Read-only snapshot: open/closed counts by `kind:`, board column distribution, blocked items, last run cost. No mutations. |
 | `boule daily` | `--category "Daily Status"` `--date <YYYY-MM-DD>` `--no-post` | Compose and post the **Daily Status** discussion (the dashboard). Idempotent per day: updates the existing post if one exists for `--date`. |
+| `boule resolve` | `<boule-id>` `--set OQ#=answer` `--from-comments` `--json` `--dry-run` | Answer an artifact's **Open Questions**. Interactive prompt by default; `--set` for scripting; `--from-comments` ingests answers **only from write/admin/maintain collaborators** (`getCollaboratorPermissionLevel`). Moves answered questions to a "Resolved Decisions" section, posts an audit comment, and refreshes the content-hash; `preserveResolutions` keeps decisions durable across agent re-runs. |
 | `boule board` | `move <item> --to <col>` / `set <item> --field <f> --value <v>` / `iteration <item> --to <iter>` | Direct Project v2 manipulation for scripted overrides; resolves numbers->node IDs and uses `updateProjectV2ItemFieldValue` / `clearProjectV2ItemFieldValue`. |
 
 ### 6.3 `bootstrap` taxonomy (what it provisions)
