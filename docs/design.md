@@ -3,7 +3,7 @@
 > **Autonomous, CLI-only, GitHub-native AI product & program management, built on the Claude Agent SDK.**
 > Codename **Boule** (Greek βουλή — the citizens' deliberative council that set the assembly's agenda) · Draft v1 · 2026-06-15
 
-> ⚠️ **Implementation status (audited 2026-06-16): Boule is ~55–60% implemented.** The "design → file a typed, deduped, tracked issue" path is built, verified live, and safe. **Resilience, auditability, reversibility, and extensibility are largely not yet built.** Crucially, the runtime is the **Claude Agent SDK `query()` loop driving the agent fleet — NOT the deterministic stage-pipeline described in §7** (that approach was superseded; checkpoint/resume, `boule undo`, the halt kill-switch, the per-run report, the secrets scrubber, and the provider port are **planned, not built**). The authoritative map of design-vs-reality is **[Appendix E — Implementation Status](#appendix-e--implementation-status-audited-2026-06-16)**; read each section against it.
+> ✅ **Implementation status (remediated 2026-06-16): the core is built, verified, and safe.** The "design → file a typed, deduped, tracked issue" path plus the resilience/auditability/reversibility layer are now implemented: the **`boule:halt` kill-switch**, **outbound secrets scrubber**, **run ledger + per-run `report.json` + write metrics**, **idempotent Daily Status**, **`boule undo`**, **checkpoint/`boule resume`**, **deterministic methodology validators (hard write gate)**, **NDJSON `--json` event stream**, and the **operability commands** (`runs`, `resume`, `undo`, `refine`, `config`, `auth`, `version`) all landed. The one intentional non-goal remains the **multi-provider port** (the GitHub seam exists; a second tracker is deferred until real). Crucially, the runtime is the **Claude Agent SDK `query()` loop driving the agent fleet — NOT the deterministic stage-pipeline described in §7** (that approach was superseded). The authoritative map of design-vs-reality is **[Appendix E — Implementation Status](#appendix-e--implementation-status-audited-2026-06-16)**; read each section against it.
 
 ---
 
@@ -4077,43 +4077,40 @@ Boule review batch 7 (final): low-severity items (cross-link backfill, config sc
 
 ## Appendix E — Implementation Status (audited 2026-06-16)
 
-> An audit of this design against the actual `src/` (agents read the code and cited file:line). **Net: ~55–60% of the design is genuinely implemented and working**; the rest is partial, stubbed, diverged, or unbuilt. Finding distribution across 7 areas: **36 working-verified · 10 implemented-untested · 27 partial · 11 stub · 1 dead-code · 24 missing.**
+> Originally an audit found **~55–60% implemented**. A methodical remediation (commits `fa310a1`…`3eca007`, 2026-06-16) then worked the backlog to green. **All blockers and highs are now built, gated (typecheck + biome + vitest + build), and CI-verified.** The single deliberate non-goal is the multi-provider port (rationale below). Read §7/§9 as *intent* (the engine is the Agent-SDK loop, not the stage-pipeline).
 
 ### Architecture reality vs. this document
-§7 (Workflows & Pipelines) and §9 (State) describe a **deterministic, checkpoint-resumable stage pipeline**. The implementation **superseded that** with the **Claude Agent SDK `query()` loop driving the named-subagent fleet** (`src/orchestrator/orchestrate.ts` → `src/agents/run.ts`). That is the real engine; the stage-pipeline module was dead code and has been removed. Read §7/§9 as *intent*, not as-built.
+§7 (Workflows & Pipelines) and §9 (State) describe a **deterministic, checkpoint-resumable stage pipeline**. The implementation **superseded that** with the **Claude Agent SDK `query()` loop driving the named-subagent fleet** (`src/orchestrator/orchestrate.ts` → `src/agents/run.ts`). That is the real engine; the stage-pipeline module was dead code and has been removed. Checkpoint/resume is now provided at the *SDK-session* level (`boule resume`), not as a stage replayer.
 
-### Status by area
+### Status by area (post-remediation)
 | Area | Verdict |
 | --- | --- |
-| GitHub layer (§5) | **Solid & verified** — issue upsert + idempotency, sub-issue linking, Projects v2 fields, bootstrap, node-id resolution, rate-limited retry client. |
-| Autonomy & safety (§8) | **Mixed** — write-gate, dry-run double-layer, blast-radius cap, dedupe, per-agent allowlists are strong & verified; **kill-switch is a no-op, `undo` + run-ledger absent, audit hook log-only, injection defense prompt-only.** |
-| Config & precedence (§9) | **Solid** — Zod schema + 4-layer precedence verified. |
-| Observability (§9) | **Partial** — run-id logging + SDK cost capture work; **per-run report, mutation metrics, secrets scrubber missing.** |
-| CLI surface (§6) | **Partial** — 12/19 commands; core flags work; **7 commands + several flags missing; `--json` is one object, not NDJSON.** |
-| Agent fleet & methodology (§3,§4) | **Designed, untested** — prompts encode the methodology and tool grants are enforced (IPM is the sole writer), but **validators are prompt-only and there is no end-to-end evidence beyond the verified `design` happy path.** |
-| Extensibility (§12) | **Aspirational** — no provider port / registries / plugin loader. |
+| GitHub layer (§5) | **Solid & verified** — issue upsert + idempotency, sub-issue linking, Projects v2 fields, bootstrap, node-id resolution, rate-limited retry client; idempotent Discussion upsert added. |
+| Autonomy & safety (§8) | **Solid** — write-gate, dry-run double-layer, blast-radius cap, dedupe, per-agent allowlists; **live `boule:halt` kill-switch (polled per-write), shell/file-tool deny-list, audit-all hook, outbound secrets scrubber, deterministic validators** now enforced. |
+| Reversibility & state (§9) | **Built** — run ledger → `report.json` + `ledger.jsonl`; `boule undo`; SDK-session checkpoint + `boule resume`. |
+| Observability (§9) | **Built** — run-id logging, SDK cost capture, per-run report + write metrics, NDJSON `--json` event stream. |
+| CLI surface (§6) | **Solid** — workflow verbs + `runs`/`resume`/`undo`/`refine`/`config`/`auth`/`version`; per-command flags (`bootstrap --labels-only/--types-only`, `sync --prune`, `triage --since/--assign/--dedupe`). |
+| Agent fleet & methodology (§3,§4) | **Enforced** — IPM is the sole writer; methodology is now a deterministic **hard write gate** (`src/quality/validate.ts`) behind the Critic, not prose-only. |
+| Extensibility (§12) | **Deferred by design** — see the provider-port note below. |
 
-### Remediation backlog (priority order)
-**Blockers**
-1. **Checkpoint/resume** — absent; crashed runs restart from scratch (only GitHub-side `boule-id` idempotency prevents duplicate work).
-2. **`boule:halt` kill-switch** — `guards.ts` checks `state.halted`, but it is hardwired `false` and never polled.
-3. **`boule undo` + run ledger** — missing; autonomous writes are irreversible.
-4. **Daily-status Discussion idempotency** — `postDiscussion` always creates; every `boule daily` duplicates.
+### Remediation backlog — completed
+**Blockers — done**
+1. ✅ **Checkpoint/resume** — `boule resume <run-id>` restores the SDK session and finishes remaining artifacts (idempotency prevents dup writes). `state/runStore.ts`, `orchestrator/resume.ts`. (`39b6698`)
+2. ✅ **`boule:halt` kill-switch** — real now: an open `boule:halt` issue aborts at start *and* is polled (throttled) per-write mid-run. `github/issues.ts:isHalted`, `tools/guards.ts`. (`512e5c7`, `d2ec59f`)
+3. ✅ **`boule undo` + run ledger** — every mutation recorded (`observability/ledger.ts`); `boule undo` reverses creates (close/delete/remove). (`b433096`, `0cbf8f2`)
+4. ✅ **Daily-status Discussion idempotency** — `upsertDiscussion` create-or-update by `key="status:<date>"`. (`2971ba1`)
 
-**High**
-5. Outbound **`scrubSecrets`** on issue/comment/discussion bodies (token-exfiltration risk) — only log redaction exists.
-6. Per-run **report.json/report.md** + GitHub mutation metrics (also the data source for undo and the daily-status body).
-7. **`--json` NDJSON** event stream + richer `AgentRunResult` (projectUrl, discussionUrl, counts, durationMs).
-8. **Missing commands** — `auth`, `version`, `config`, `runs` first, then `board`, `refine`, `completion`; plus per-command flags (`sync --prune`, `triage --since/--assign/--dedupe`, `bootstrap --labels-only/--types-only`).
-9. **Audit hook** is log-only, scoped to `mcp__github__.*` — doesn't gate Bash/git escape hatches.
-10. **Deterministic acceptance validators** (numeric-NFR, Gherkin-present, single-ranker, no-orphans) — currently prompt-only.
-11. **Provider-abstraction seam** (`IssueTracker` port) — the tool/github layer imports Octokit directly; §12 GitLab/Jira/plugin claims unbuilt.
+**High — done**
+5. ✅ **`scrubSecrets`** on issue/discussion titles+bodies at the tool boundary. (`512e5c7`)
+6. ✅ Per-run **report.json** + GitHub mutation metrics (folded into `AgentRunResult.metrics`/`artifactsWritten` from the ledger). (`b433096`)
+7. ✅ **`--json` NDJSON** event stream (`run_started`/`write`/`run_finished`) via `observability/events.ts` + `runId` in the result. (`85f709d`)
+8. ✅ **Commands + flags** — `runs`, `resume`, `undo`, `refine`, `config`, `auth`, `version`; `bootstrap --labels-only/--types-only`, `sync --prune`, `triage --since/--assign/--dedupe`. (`14e9a98`, `e9fd3a2`, `3eca007`)
+9. ✅ **Audit hook** now matches `.*` (every tool) and the gate **denies** Bash/Write/Edit/WebFetch/Kill* — Boule's only side-effect path is the GitHub tools. (`d2ec59f`)
+10. ✅ **Deterministic validators** — Non-Goals / `shall`+Gherkin / Five-Forces-placement / gap-grid gates block the write; warnings (weasel NFR, JTBD grammar) log. `src/quality/validate.ts`. (`f5dca83`)
 
-**Medium — fixed in this revision (2026-06-16)**
-- ✅ `ArtifactKind` now includes `spike`; `market`/`spike` have issue-type mappings + bootstrap labels/colors (`taxonomy.ts`, `bootstrap.ts`, `core/types.ts`, `tools/githubTools.ts`).
-- ✅ Agent prompts corrected — `mcp__github__*` prefix; removed the non-existent `gh_set_issue_type`/`gh_project_add_item` references.
-- ✅ Removed the dead `runPipeline`/`Stage` export and module; removed the misleading `--effort` flag; corrected the `--json` help text.
-- ✅ Added `models.orchestrator` cost knob (run the coordinator on a cheaper tier; subagents keep Opus).
+**Medium — done**
+- ✅ `ArtifactKind` includes `spike`; `market`/`spike` have issue-type mappings + bootstrap labels/colors. Prompts corrected (`mcp__github__*`; removed non-existent tools). Dead `runPipeline`/`--effort` removed; `models.orchestrator` cost knob added. (`fa310a1`)
+- ✅ Label taxonomy unified on the colon convention: all `boule:needs-human` (was a slash/`status:` mix); reference schema aligned; dead `ARTIFACT_LABEL` removed; the two status models (issue acceptance label vs board workflow field) documented. (`8abd70b`)
 
-**Medium — open**
-- Reconcile label taxonomy: `STATUS_LABELS` (draft/needs-review/accepted/superseded) vs `STATUS_OPTIONS` (Triage/In Design/…) vs this doc; `boule:managed` vs the doc's `boule/generated`. Pick one canonical set so the dual-layer label+field state can't drift.
+### Deliberate non-goal: the multi-provider (`IssueTracker`) port
+§12 imagined GitLab/Jira backends behind an `IssueTracker` port. This is **intentionally not built** — building a speculative abstraction for a second provider that does not yet exist would add indirection and risk for no realized value (YAGNI). The **seam already exists**, so a port is additive when a real second provider arrives: the domain lingua franca is provider-agnostic (`src/core/types.ts`, `Artifact`/`IssueRef`), agents speak only in domain terms (kind, boule-id, category/field *names*) through the gated tools in `src/tools/githubTools.ts`, and every GitHub specific (Octokit, GraphQL docs, node-id resolution) is isolated under `src/github/`. A port would introduce an interface over `src/github/` and a second implementation — no change to agents, taxonomy, or the orchestration loop. Until a second tracker is a real requirement, GitHub-native is the design.
