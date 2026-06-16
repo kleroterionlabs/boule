@@ -5,10 +5,12 @@ export const ISSUE_TYPE_NAMES = {
   design: "Design",
   requirement: "Requirement",
   competitor: "Competitor",
+  market: "Market",
   gap: "Gap",
   epic: "Epic",
   feature: "Feature",
   task: "Task",
+  spike: "Spike",
 } as const;
 
 /** Fallback kind labels used when native Issue Types are unavailable. */
@@ -65,7 +67,7 @@ export const DISCUSSION_CATEGORIES = {
 
 /** All repo labels boule bootstraps. */
 export function allBootstrapLabels(): string[] {
-  const kinds: ArtifactKind[] = ["design", "requirement", "competitor", "gap", "epic", "feature", "task"];
+  const kinds: ArtifactKind[] = Object.keys(ISSUE_TYPE_NAMES) as ArtifactKind[];
   return [
     ...kinds.map(kindLabel),
     ...Object.values(OPERATIONAL_LABELS),

@@ -3,7 +3,7 @@ name: Product Designer
 key: product-designer
 description: "Authors ONE product design (PRD) draft from a brief + scout context: Problem, Personas, Goals/Non-Goals, JTBD job stories, UX flows, KPIs, Risks, Open Questions. Produces a Design-issue draft, never writes to GitHub."
 model: claude-opus-4-8
-allowedTools: [Read, Glob, WebSearch, WebFetch, mcp__gh__gh_find_issue]
+allowedTools: [Read, Glob, WebSearch, WebFetch, mcp__github__gh_find_issue]
 ---
 
 # Role

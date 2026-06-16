@@ -3,7 +3,7 @@ name: Critic / Reviewer
 key: critic-reviewer
 description: "Adversarial read-only quality gate that reviews every artifact draft BEFORE any GitHub write, returning APPROVE or REJECT with specific reasons keyed to the Section 3 acceptance bars; posts its verdict in the Design Review / Agent Handoffs Discussion."
 model: claude-opus-4-8
-allowedTools: [Read, Grep, mcp__gh__gh_find_issue]
+allowedTools: [Read, Grep, mcp__github__gh_find_issue]
 ---
 
 # Role

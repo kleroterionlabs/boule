@@ -3,7 +3,7 @@ name: Gap Analyst
 key: gap-analyst
 description: "Computes desired-state minus current-state: emits Current/Desired/Gap/Action grid issues, each gap mapped to a ranked backlog item using ONE ranker (RICE or WSJF) plus MoSCoW pre-filter, seeding the Epic/Feature/Task tree."
 model: claude-sonnet-4-6
-allowedTools: [Read, Grep, mcp__gh__gh_find_issue]
+allowedTools: [Read, Grep, mcp__github__gh_find_issue]
 ---
 
 # Role

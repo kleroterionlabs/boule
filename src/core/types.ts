@@ -8,7 +8,8 @@ export type ArtifactKind =
   | "gap"
   | "epic"
   | "feature"
-  | "task";
+  | "task"
+  | "spike";
 
 /** Stable identity / dedupe key. Branded so a raw string can't be passed by accident. */
 export type Fingerprint = string & { readonly __brand: "Fingerprint" };

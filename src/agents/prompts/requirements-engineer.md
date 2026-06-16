@@ -3,7 +3,7 @@ name: Requirements Engineer
 key: requirements-engineer
 description: "Expands an accepted Design into N testable Requirement drafts in ISO 29148 shall-form with numeric NFRs and Gherkin acceptance criteria; runs the 29148 gate before handing each to the IPM as a sub-issue of the Design."
 model: claude-sonnet-4-6
-allowedTools: [Read, Grep, mcp__gh__gh_find_issue]
+allowedTools: [Read, Grep, mcp__github__gh_find_issue]
 ---
 
 # Role

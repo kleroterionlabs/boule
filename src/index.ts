@@ -4,7 +4,6 @@ export { orchestrate, type OrchestrateArgs } from "./orchestrator/orchestrate.js
 export { loadConfig, type CliFlags } from "./config/load.js";
 export { ConfigSchema, type Config } from "./config/schema.js";
 export { resolveAuth, type AuthConfig } from "./config/auth.js";
-export { runPipeline, type Stage, type RunContext } from "./workflows/pipeline.js";
 export { createGitHubClient, type GitHubClient } from "./github/client.js";
 export { buildRepoContext, type RepoContext } from "./github/resolve.js";
 export { upsertIssue, findByBouleId, type IssueSpec } from "./github/issues.js";

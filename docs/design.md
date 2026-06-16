@@ -3,6 +3,8 @@
 > **Autonomous, CLI-only, GitHub-native AI product & program management, built on the Claude Agent SDK.**
 > Codename **Boule** (Greek βουλή — the citizens' deliberative council that set the assembly's agenda) · Draft v1 · 2026-06-15
 
+> ⚠️ **Implementation status (audited 2026-06-16): Boule is ~55–60% implemented.** The "design → file a typed, deduped, tracked issue" path is built, verified live, and safe. **Resilience, auditability, reversibility, and extensibility are largely not yet built.** Crucially, the runtime is the **Claude Agent SDK `query()` loop driving the agent fleet — NOT the deterministic stage-pipeline described in §7** (that approach was superseded; checkpoint/resume, `boule undo`, the halt kill-switch, the per-run report, the secrets scrubber, and the provider port are **planned, not built**). The authoritative map of design-vs-reality is **[Appendix E — Implementation Status](#appendix-e--implementation-status-audited-2026-06-16)**; read each section against it.
+
 ---
 
 ## Executive Summary
@@ -4070,3 +4072,48 @@ Boule review batch 7 (final): low-severity items (cross-link backfill, config sc
 - (Extensibility, Plugins & Roadmap) Which single primary ranker is canonical for the backlog — RICE or WSJF — given the brief says pick ONE per backlog to keep scores comparable (MoSCoW stays as the coarse pre-filter either way)?
 - (Extensibility, Plugins & Roadmap) Should the M5 platform port target GitLab or Jira first, and is degraded-capability mode (no native Discussions/Projects v2) acceptable for that provider's v1, or must collaboration/daily-status reach feature parity?
 - (Extensibility, Plugins & Roadmap) For agent prompt and template overrides, is the repo-local ./.boule/ directory the intended committed-config location, or should overrides live under the existing .claude/ tree that settingSources already loads?
+
+---
+
+## Appendix E — Implementation Status (audited 2026-06-16)
+
+> An audit of this design against the actual `src/` (agents read the code and cited file:line). **Net: ~55–60% of the design is genuinely implemented and working**; the rest is partial, stubbed, diverged, or unbuilt. Finding distribution across 7 areas: **36 working-verified · 10 implemented-untested · 27 partial · 11 stub · 1 dead-code · 24 missing.**
+
+### Architecture reality vs. this document
+§7 (Workflows & Pipelines) and §9 (State) describe a **deterministic, checkpoint-resumable stage pipeline**. The implementation **superseded that** with the **Claude Agent SDK `query()` loop driving the named-subagent fleet** (`src/orchestrator/orchestrate.ts` → `src/agents/run.ts`). That is the real engine; the stage-pipeline module was dead code and has been removed. Read §7/§9 as *intent*, not as-built.
+
+### Status by area
+| Area | Verdict |
+| --- | --- |
+| GitHub layer (§5) | **Solid & verified** — issue upsert + idempotency, sub-issue linking, Projects v2 fields, bootstrap, node-id resolution, rate-limited retry client. |
+| Autonomy & safety (§8) | **Mixed** — write-gate, dry-run double-layer, blast-radius cap, dedupe, per-agent allowlists are strong & verified; **kill-switch is a no-op, `undo` + run-ledger absent, audit hook log-only, injection defense prompt-only.** |
+| Config & precedence (§9) | **Solid** — Zod schema + 4-layer precedence verified. |
+| Observability (§9) | **Partial** — run-id logging + SDK cost capture work; **per-run report, mutation metrics, secrets scrubber missing.** |
+| CLI surface (§6) | **Partial** — 12/19 commands; core flags work; **7 commands + several flags missing; `--json` is one object, not NDJSON.** |
+| Agent fleet & methodology (§3,§4) | **Designed, untested** — prompts encode the methodology and tool grants are enforced (IPM is the sole writer), but **validators are prompt-only and there is no end-to-end evidence beyond the verified `design` happy path.** |
+| Extensibility (§12) | **Aspirational** — no provider port / registries / plugin loader. |
+
+### Remediation backlog (priority order)
+**Blockers**
+1. **Checkpoint/resume** — absent; crashed runs restart from scratch (only GitHub-side `boule-id` idempotency prevents duplicate work).
+2. **`boule:halt` kill-switch** — `guards.ts` checks `state.halted`, but it is hardwired `false` and never polled.
+3. **`boule undo` + run ledger** — missing; autonomous writes are irreversible.
+4. **Daily-status Discussion idempotency** — `postDiscussion` always creates; every `boule daily` duplicates.
+
+**High**
+5. Outbound **`scrubSecrets`** on issue/comment/discussion bodies (token-exfiltration risk) — only log redaction exists.
+6. Per-run **report.json/report.md** + GitHub mutation metrics (also the data source for undo and the daily-status body).
+7. **`--json` NDJSON** event stream + richer `AgentRunResult` (projectUrl, discussionUrl, counts, durationMs).
+8. **Missing commands** — `auth`, `version`, `config`, `runs` first, then `board`, `refine`, `completion`; plus per-command flags (`sync --prune`, `triage --since/--assign/--dedupe`, `bootstrap --labels-only/--types-only`).
+9. **Audit hook** is log-only, scoped to `mcp__github__.*` — doesn't gate Bash/git escape hatches.
+10. **Deterministic acceptance validators** (numeric-NFR, Gherkin-present, single-ranker, no-orphans) — currently prompt-only.
+11. **Provider-abstraction seam** (`IssueTracker` port) — the tool/github layer imports Octokit directly; §12 GitLab/Jira/plugin claims unbuilt.
+
+**Medium — fixed in this revision (2026-06-16)**
+- ✅ `ArtifactKind` now includes `spike`; `market`/`spike` have issue-type mappings + bootstrap labels/colors (`taxonomy.ts`, `bootstrap.ts`, `core/types.ts`, `tools/githubTools.ts`).
+- ✅ Agent prompts corrected — `mcp__github__*` prefix; removed the non-existent `gh_set_issue_type`/`gh_project_add_item` references.
+- ✅ Removed the dead `runPipeline`/`Stage` export and module; removed the misleading `--effort` flag; corrected the `--json` help text.
+- ✅ Added `models.orchestrator` cost knob (run the coordinator on a cheaper tier; subagents keep Opus).
+
+**Medium — open**
+- Reconcile label taxonomy: `STATUS_LABELS` (draft/needs-review/accepted/superseded) vs `STATUS_OPTIONS` (Triage/In Design/…) vs this doc; `boule:managed` vs the doc's `boule/generated`. Pick one canonical set so the dual-layer label+field state can't drift.

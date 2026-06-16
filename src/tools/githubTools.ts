@@ -19,7 +19,17 @@ export interface ToolContext {
   log: Logger;
 }
 
-const KIND = z.enum(["design", "requirement", "competitor", "market", "gap", "epic", "feature", "task"]);
+const KIND = z.enum([
+  "design",
+  "requirement",
+  "competitor",
+  "market",
+  "gap",
+  "epic",
+  "feature",
+  "task",
+  "spike",
+]);
 
 const ok = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data) }],

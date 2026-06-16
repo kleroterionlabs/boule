@@ -44,10 +44,12 @@ const ISSUE_TYPE_COLORS: Record<string, string> = {
   Design: "BLUE",
   Requirement: "GREEN",
   Competitor: "ORANGE",
+  Market: "PINK",
   Gap: "RED",
   Epic: "PURPLE",
   Feature: "GRAY",
   Task: "GRAY",
+  Spike: "YELLOW",
 };
 
 /** Deterministic label color by category prefix (hex without '#'). */

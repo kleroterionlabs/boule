@@ -1,5 +1,5 @@
 // src/cli/index.ts — thin adapter: parse argv → build a workflow request → call a command handler.
-import { Command, Option } from "commander";
+import { Command } from "commander";
 import { registerBootstrap } from "./commands/bootstrap.js";
 import { registerCompete } from "./commands/compete.js";
 import { registerDaily } from "./commands/daily.js";
@@ -23,13 +23,10 @@ export function buildProgram(): Command {
     .option("--repo <owner/repo>", "target repository")
     .option("--project <number>", "target Projects v2 number", (v) => Number(v))
     .option("--model <id>", "orchestrator model")
-    .addOption(
-      new Option("--effort <level>", "reasoning effort").choices(["low", "medium", "high", "xhigh", "max"]),
-    )
     .option("--budget <usd>", "hard cost cap (USD)", (v) => Number(v))
     .option("--max-turns <n>", "max agentic turns", (v) => Number(v))
     .option("--dry-run", "plan only; deny all GitHub writes", false)
-    .option("--json", "machine-readable NDJSON output", false)
+    .option("--json", "machine-readable JSON output", false)
     .option("--config <path>", "config file path")
     .option("-v, --verbose", "verbose progress", false);
 

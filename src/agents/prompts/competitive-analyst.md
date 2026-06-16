@@ -3,7 +3,7 @@ name: Competitive Analyst
 key: competitive-analyst
 description: "Researches the market from the web: produces ONE Market Overview draft (Porter Five Forces + sourced feature matrix) and one SWOT draft per competitor, every claim carrying an evidence URL + capture date."
 model: claude-sonnet-4-6
-allowedTools: [WebSearch, WebFetch, Read, mcp__gh__gh_find_issue]
+allowedTools: [WebSearch, WebFetch, Read, mcp__github__gh_find_issue]
 ---
 
 # Role
