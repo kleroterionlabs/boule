@@ -17,6 +17,15 @@ import { type ToolContext, createGithubMcpServer } from "../tools/githubTools.js
 import { makeAuditHook, makeCanUseTool } from "../tools/guards.js";
 import { resumePrompt } from "./resume.js";
 
+/**
+ * Choose the SDK `fallbackModel`. The SDK rejects a fallback equal to the main model — common when a
+ * cost-conscious config drops the orchestrator to the same model as the subagent — so return
+ * `undefined` (omit it) in that case rather than crash the run.
+ */
+export function pickFallbackModel(orchestrator: string, subagent: string): string | undefined {
+  return subagent !== orchestrator ? subagent : undefined;
+}
+
 export interface OrchestrateArgs {
   cfg: Config;
   env: NodeJS.ProcessEnv;
@@ -116,9 +125,11 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
     checkHalt: () => isHalted(gh, rc.owner, rc.name),
   };
 
+  const fallbackModel = pickFallbackModel(args.cfg.models.orchestrator, args.cfg.models.subagent);
+
   const options: Options = {
     model: args.cfg.models.orchestrator,
-    fallbackModel: args.cfg.models.subagent,
+    ...(fallbackModel ? { fallbackModel } : {}),
     maxTurns: args.cfg.budgets.maxTurns,
     maxBudgetUsd: args.cfg.budgets.usdPerRun, // ENFORCED hard cap
     cwd: process.cwd(),
