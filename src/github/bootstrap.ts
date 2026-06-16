@@ -31,10 +31,14 @@ export interface BootstrapReport {
   manualActions: string[];
 }
 
+export type BootstrapSection = "labels" | "types" | "categories" | "project";
+
 export interface BootstrapOptions {
   dryRun: boolean;
   /** Create a new Projects v2 board with this title (when no projectNumber is configured). */
   createProjectTitle?: string;
+  /** Restrict provisioning to these sections. Undefined ⇒ all sections. */
+  only?: ReadonlySet<BootstrapSection>;
 }
 
 const SELECT_COLORS = ["GRAY", "BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PURPLE", "PINK"];
@@ -75,6 +79,7 @@ export async function bootstrap(
   opts: BootstrapOptions = { dryRun: false },
 ): Promise<BootstrapReport> {
   const [owner, name] = cfg.repo.split("/") as [string, string];
+  const run = (section: BootstrapSection): boolean => !opts.only || opts.only.has(section);
   const report: BootstrapReport = {
     labels: { created: [], existed: [] },
     issueTypes: { created: [], verified: [], missing: [] },
@@ -84,40 +89,44 @@ export async function bootstrap(
   };
 
   // 1. Labels — idempotent create-or-skip via REST, with category colors.
-  for (const labelName of allBootstrapLabels()) {
-    try {
-      await gh.withRest("read", (o) => o.issues.getLabel({ owner, repo: name, name: labelName }));
-      report.labels.existed.push(labelName);
-    } catch {
-      if (!opts.dryRun) {
-        await gh.withRest("write", (o) =>
-          o.issues.createLabel({ owner, repo: name, name: labelName, color: labelColor(labelName) }),
-        );
+  if (run("labels")) {
+    for (const labelName of allBootstrapLabels()) {
+      try {
+        await gh.withRest("read", (o) => o.issues.getLabel({ owner, repo: name, name: labelName }));
+        report.labels.existed.push(labelName);
+      } catch {
+        if (!opts.dryRun) {
+          await gh.withRest("write", (o) =>
+            o.issues.createLabel({ owner, repo: name, name: labelName, color: labelColor(labelName) }),
+          );
+        }
+        report.labels.created.push(labelName);
       }
-      report.labels.created.push(labelName);
     }
   }
 
   // 2. Issue types — org-level; create Boule's custom types if the App has org-admin access.
-  await ensureIssueTypes(gh, owner, opts.dryRun, report);
+  if (run("types")) await ensureIssueTypes(gh, owner, opts.dryRun, report);
 
   // 3. Discussion categories — verify only (cannot be created via API).
-  await verifyCategories(gh, owner, name, cfg, report);
+  if (run("categories")) await verifyCategories(gh, owner, name, cfg, report);
 
   // 4. Projects v2 board + fields.
-  let projectId: string | undefined;
-  if (cfg.projectNumber) {
-    projectId = await resolveProjectId(gh, owner, cfg.projectNumber);
-  } else if (opts.createProjectTitle && !opts.dryRun) {
-    projectId = await createProject(gh, owner, name, opts.createProjectTitle, report);
-  } else if (opts.createProjectTitle) {
-    report.manualActions.push(`Would create Projects v2 board "${opts.createProjectTitle}" (dry-run).`);
-  } else {
-    report.manualActions.push(
-      "No projectNumber configured — set one or pass --create-project to provision a board.",
-    );
+  if (run("project")) {
+    let projectId: string | undefined;
+    if (cfg.projectNumber) {
+      projectId = await resolveProjectId(gh, owner, cfg.projectNumber);
+    } else if (opts.createProjectTitle && !opts.dryRun) {
+      projectId = await createProject(gh, owner, name, opts.createProjectTitle, report);
+    } else if (opts.createProjectTitle) {
+      report.manualActions.push(`Would create Projects v2 board "${opts.createProjectTitle}" (dry-run).`);
+    } else {
+      report.manualActions.push(
+        "No projectNumber configured — set one or pass --create-project to provision a board.",
+      );
+    }
+    if (projectId) await ensureProjectFields(gh, projectId, opts.dryRun, report);
   }
-  if (projectId) await ensureProjectFields(gh, projectId, opts.dryRun, report);
 
   log.info({ report }, "bootstrap complete");
   return report;
