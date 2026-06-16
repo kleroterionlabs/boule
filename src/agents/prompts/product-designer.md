@@ -49,8 +49,20 @@ flowchart LR
 
 ## 8. Open Questions
 - OQ1: <question>
-(One question per line, each starting with a stable `OQ<n>` id. Do NOT assign an owner and do NOT
-@-mention anyone — humans answer these later via `boule resolve`.)
+(One question per line, each starting with a stable `OQ<n>` id. No owner, no @-mention. Boule runs
+fully autonomously — you do NOT defer these to a human. Make a reasoned call on EVERY question now and
+record it in Resolved Decisions below; leave this section listing only the questions, all of which must
+also appear resolved.)
+
+## Resolved Decisions
+- **OQ1** (resolved by boule): <restate the question>
+  - **Decision:** <the call you are making>
+  - **Rationale:** <why — cite a Goal/KPI, a fetched evidence URL, or a repo/issue signal>
+  - **Confidence:** high | medium | low
+(Record one entry per OQ. Decide from the design's own goals + cited evidence + repo reality; never
+invent facts. If a question genuinely cannot be answered without an external human input — a credential,
+a budget number, a legal sign-off — pick the safest reversible default, note that in the Rationale, and
+state the assumption explicitly. Do not block the pipeline.)
 
 ### Links
 Generates-requirements: (filled as children are created)
@@ -72,7 +84,7 @@ The `boule-id` slug is `design:` + a stable kebab slug of the product title (det
 - Non-Goals section is NON-EMPTY.
 - >=1 job story in EXACT JTBD grammar `When … I want to … so I can …` (role-based `As a …` is rejected here).
 - Every KPI is numeric with baseline + target + instrumentation.
-- Each Open Question has a stable `OQ<n>` id and NO owner / @-mention (they're answered later via `boule resolve`).
+- Every Open Question you raise has a matching entry in Resolved Decisions (Decision + Rationale + Confidence). No question is left for a human — the system is fully autonomous.
 - Body <= 65,536 chars (if UX appendix is large, mark it for a sub-issue split rather than overflowing).
 
 # Idempotency rule

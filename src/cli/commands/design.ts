@@ -19,9 +19,14 @@ export function registerDesign(program: Command): void {
 
       const prompt = [
         "Produce a Product Design (PRD) as a typed GitHub issue for the following idea.",
-        "Delegate authoring to the product-designer agent, critique, then have the ipm agent",
-        "upsert the Design issue (idempotent on boule-id). Enforce: explicit Non-Goals,",
-        "JTBD job stories, numeric KPIs, owners on every Open Question.",
+        "Delegate authoring to the product-designer agent, critique with the critic, then have the ipm",
+        "agent upsert the Design issue (idempotent on boule-id). Enforce: explicit Non-Goals, JTBD job",
+        "stories, numeric KPIs, and an autonomously-resolved Decision (with rationale) for every Open",
+        "Question — defer nothing to a human.",
+        "Boule is fully autonomous: on the critic's APPROVE, accept the design (status:accepted / board",
+        "Ready) and CONTINUE in this same run — delegate the requirements-engineer to derive Requirement",
+        "sub-issues, each critic-reviewed and accepted the same way. Stop only at the budget/turn cap or a",
+        "genuine boule:needs-human blocker.",
         "",
         `IDEA / BRIEF:\n${brief}`,
       ].join("\n");
