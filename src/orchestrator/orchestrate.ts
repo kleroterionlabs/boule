@@ -9,6 +9,7 @@ import type { AgentRunResult } from "../core/types.js";
 import { createGitHubClient } from "../github/client.js";
 import { isHalted } from "../github/issues.js";
 import { buildRepoContext } from "../github/resolve.js";
+import type { Emit } from "../observability/events.js";
 import { Ledger, emptyMetrics } from "../observability/ledger.js";
 import { createLogger } from "../observability/logger.js";
 import { loadCheckpoint, persistRun, saveCheckpoint } from "../state/runStore.js";
@@ -23,12 +24,15 @@ export interface OrchestrateArgs {
   prompt: string;
   /** Resume a prior run by its id: restores the SDK session and continues the same workflow. */
   resume?: string;
+  /** Stream lifecycle/write events (NDJSON in --json mode). Defaults to a no-op. */
+  onEvent?: Emit;
 }
 
 export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult> {
   const runId = ulid();
   const dryRun = args.cfg.flags.dryRun;
   const log = createLogger(args.cfg, runId);
+  const emit: Emit = args.onEvent ?? (() => {});
 
   // Resolve what to run. A resume reads workflow + original prompt + SDK session from a checkpoint.
   let workflow = args.workflow;
@@ -39,7 +43,7 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
   if (args.resume) {
     const cp = loadCheckpoint(args.resume);
     if (!cp) {
-      return {
+      const result: AgentRunResult = {
         ok: false,
         runId,
         workflow: args.workflow,
@@ -53,6 +57,8 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
         stopReason: "error_during_execution",
         errors: [`no checkpoint for run ${args.resume} — cannot resume`],
       };
+      emit({ type: "run_finished", result });
+      return result;
     }
     workflow = cp.workflow;
     checkpointPrompt = cp.prompt;
@@ -70,7 +76,7 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
   // Kill-switch: an open `boule:halt` issue stops the run before any model spend or writes.
   if (!dryRun && (await isHalted(gh, rc.owner, rc.name))) {
     log.warn("boule:halt is active — aborting. Close the boule:halt issue to resume.");
-    return {
+    const result: AgentRunResult = {
       ok: false,
       runId,
       workflow,
@@ -84,9 +90,12 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
       stopReason: "halted",
       errors: ["boule:halt active — an open issue labeled boule:halt is blocking writes."],
     };
+    emit({ type: "run_started", runId, workflow });
+    emit({ type: "run_finished", result });
+    return result;
   }
 
-  const ledger = new Ledger();
+  const ledger = new Ledger((entry) => emit({ type: "write", entry }));
   const toolCtx: ToolContext = {
     gh,
     rc,
@@ -124,6 +133,8 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
     hooks: { PreToolUse: [{ matcher: ".*", hooks: [makeAuditHook(guardState)] }] },
     ...(sdkResume ? { resume: sdkResume } : {}),
   };
+
+  emit({ type: "run_started", runId, workflow, ...(resumedFrom ? { resumedFrom } : {}) });
 
   // Checkpoint as soon as the SDK session exists, so even a crash/budget-halt mid-run is resumable.
   const result = await runAgent({
@@ -167,5 +178,6 @@ export async function orchestrate(args: OrchestrateArgs): Promise<AgentRunResult
     }
     log.info({ reportPath, metrics: result.metrics }, "run report written");
   }
+  emit({ type: "run_finished", result });
   return result;
 }

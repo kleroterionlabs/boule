@@ -33,7 +33,7 @@ export function buildProgram(): Command {
     .option("--budget <usd>", "hard cost cap (USD)", (v) => Number(v))
     .option("--max-turns <n>", "max agentic turns", (v) => Number(v))
     .option("--dry-run", "plan only; deny all GitHub writes", false)
-    .option("--json", "machine-readable JSON output", false)
+    .option("--json", "stream machine-readable NDJSON events (one JSON object per line)", false)
     .option("--config <path>", "config file path")
     .option("-v, --verbose", "verbose progress", false);
 

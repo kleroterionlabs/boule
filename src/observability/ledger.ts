@@ -38,9 +38,16 @@ export function emptyMetrics(): RunMetrics {
 /** Append-only record of a run's GitHub mutations. */
 export class Ledger {
   readonly entries: LedgerEntry[] = [];
+  private readonly onRecord?: (entry: LedgerEntry) => void;
+
+  constructor(onRecord?: (entry: LedgerEntry) => void) {
+    this.onRecord = onRecord;
+  }
 
   record(entry: Omit<LedgerEntry, "ts">): void {
-    this.entries.push({ ts: new Date().toISOString(), ...entry });
+    const full: LedgerEntry = { ts: new Date().toISOString(), ...entry };
+    this.entries.push(full);
+    this.onRecord?.(full);
   }
 
   metrics(): RunMetrics {

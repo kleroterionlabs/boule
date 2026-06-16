@@ -1,6 +1,7 @@
 // src/cli/commands/resume.ts — continue a prior run from its checkpoint (restores the agent session).
 import type { Command } from "commander";
 import { type CliFlags, loadConfig } from "../../config/load.js";
+import { makeEmitter } from "../../observability/events.js";
 import { orchestrate } from "../../orchestrator/orchestrate.js";
 import { loadCheckpoint } from "../../state/runStore.js";
 import { renderRunSummary } from "../render.js";
@@ -25,14 +26,16 @@ export function registerResume(program: Command): void {
         process.stdout.write(`Run ${runId} already completed successfully; resuming anyway.\n`);
       }
       const cfg = loadConfig({ cwd: process.cwd(), env: process.env, cli: global as CliFlags });
+      const json = Boolean(global.json);
       const result = await orchestrate({
         cfg,
         env: process.env,
         workflow: cp.workflow,
         prompt: cp.prompt,
         resume: runId,
+        onEvent: makeEmitter(json),
       });
-      renderRunSummary(result, { json: Boolean(global.json) });
+      if (!json) renderRunSummary(result, { json: false });
       if (!result.ok) {
         process.exitCode = result.stopReason === "error_max_budget_usd" ? 4 : 1;
       }
