@@ -1,6 +1,7 @@
 // src/cli/index.ts — thin adapter: parse argv → build a workflow request → call a command handler.
 import { Command } from "commander";
 import { getVersion } from "../util/version.js";
+import { registerAdvance } from "./commands/advance.js";
 import { registerAuth } from "./commands/auth.js";
 import { registerBootstrap } from "./commands/bootstrap.js";
 import { registerCompete } from "./commands/compete.js";
@@ -51,6 +52,7 @@ export function buildProgram(): Command {
     registerRefine,
     registerSync,
     registerTriage,
+    registerAdvance,
     registerStatus,
     registerDaily,
     registerUndo,

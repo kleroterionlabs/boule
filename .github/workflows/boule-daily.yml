@@ -45,6 +45,15 @@ jobs:
           BOULE_REPO: ${{ github.repository }}
         run: node dist/bin.js triage ${{ inputs.dry_run && '--dry-run' || '' }} --budget 3
 
+      - name: Advance the backlog (Critic-gate → accepted → next stage)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          BOULE_APP_ID: ${{ secrets.BOULE_APP_ID }}
+          BOULE_APP_INSTALLATION_ID: ${{ secrets.BOULE_APP_INSTALLATION_ID }}
+          BOULE_APP_PRIVATE_KEY: ${{ secrets.BOULE_APP_PRIVATE_KEY }}
+          BOULE_REPO: ${{ github.repository }}
+        run: node dist/bin.js advance ${{ inputs.dry_run && '--dry-run' || '' }} --budget 5
+
       - name: Post daily status
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

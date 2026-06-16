@@ -51,12 +51,18 @@ export function createGithubMcpServer(ctx: ToolContext) {
     tools: [
       tool(
         "gh_find_issue",
-        "Read-only: find an existing artifact issue by its stable boule-id. Use before creating to avoid duplicates.",
+        "Read-only: find an existing artifact issue by its stable boule-id. Returns found, number, url, " +
+          "and the full issue body (markdown, including the boule:v1 block) — use it to read an existing " +
+          "artifact's current content before updating or re-reviewing it, and to avoid creating duplicates.",
         { bouleId: z.string() },
         async (args) => {
           try {
             const found = await findByBouleId(gh, rc.owner, rc.name, args.bouleId);
-            return ok(found ? { found: true, number: found.number, url: found.url } : { found: false });
+            return ok(
+              found
+                ? { found: true, number: found.number, url: found.url, body: found.body }
+                : { found: false },
+            );
           } catch (e) {
             return fail(`gh_find_issue error: ${String(e)}`);
           }
