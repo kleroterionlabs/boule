@@ -30,7 +30,7 @@ export const ConfigSchema = z
     budgets: z
       .object({
         usdPerRun: z.number().positive().default(5),
-        maxTurns: z.number().int().positive().default(80),
+        maxTurns: z.number().int().positive().default(200),
         maxGithubWrites: z.number().int().positive().default(300),
         graphqlPointBudget: z.number().int().positive().default(4000),
         fanoutConcurrency: z.number().int().positive().default(4),

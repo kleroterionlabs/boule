@@ -52,7 +52,7 @@ jobs:
           BOULE_APP_INSTALLATION_ID: ${{ secrets.BOULE_APP_INSTALLATION_ID }}
           BOULE_APP_PRIVATE_KEY: ${{ secrets.BOULE_APP_PRIVATE_KEY }}
           BOULE_REPO: ${{ github.repository }}
-        run: node dist/bin.js advance ${{ inputs.dry_run && '--dry-run' || '' }} --budget 15
+        run: node dist/bin.js advance ${{ inputs.dry_run && '--dry-run' || '' }} --budget 15 --max-turns 400
 
       - name: Post daily status
         env:

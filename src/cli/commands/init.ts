@@ -20,7 +20,7 @@ function configTemplate(repo: string): string {
     "",
     "budgets:",
     "  usdPerRun: 5",
-    "  maxTurns: 80",
+    "  maxTurns: 200",
     "  maxGithubWrites: 300",
     "",
     "flags:",
