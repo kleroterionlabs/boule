@@ -14,11 +14,8 @@ export default defineConfig({
       reporter: ["text", "lcov", "json-summary"],
       include: ["src/**/*.ts"],
       exclude: ["src/cli/bin.ts", "src/agents/prompts*/**", "**/*.d.ts"],
-      // Gate the pure functional core (idempotency is load-bearing for autonomous dedupe).
-      // Global thresholds intentionally ratchet up as the integration suite fills in.
-      thresholds: {
-        "src/util/idempotency.ts": { lines: 100, branches: 80, functions: 100, statements: 100 },
-      },
+      // The idempotency module is now a re-export shim of @kleroterion/koine; its logic and its
+      // 100%-coverage test live in koine, so the per-file threshold that used to gate it here is gone.
     },
   },
 });

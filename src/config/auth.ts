@@ -1,15 +1,17 @@
 // src/config/auth.ts — secrets ingress is env-only; AuthConfig is never written to disk/logs.
+// The credential TYPES + token minting are single-sourced from @kleroterion/koine; this file owns
+// only Boule's env resolution (the BOULE_APP_* trio / GITHUB_TOKEN) and the Claude auth mode.
 import { readFileSync } from "node:fs";
+import type { GitHubAuth, AuthConfig as KoineAuthConfig } from "@kleroterion/koine";
 import { ConfigError } from "../util/errors.js";
 
-export type GithubAuth =
-  | { kind: "app"; appId: string; installationId: number; privateKey: string }
-  | { kind: "pat"; token: string };
+export type { GitHubAuth };
+/** Back-compat alias: Boule historically named koine's GitHubAuth "GithubAuth". */
+export type GithubAuth = GitHubAuth;
 
 export type ClaudeAuthKind = "oauth-token" | "api-key" | "subscription-login";
 
-export interface AuthConfig {
-  github: GithubAuth;
+export interface AuthConfig extends KoineAuthConfig {
   /**
    * How the Claude Agent SDK will authenticate. The SDK reads the actual token from the
    * environment itself (CLAUDE_CODE_OAUTH_TOKEN, else ANTHROPIC_API_KEY), so we only record
@@ -44,7 +46,7 @@ export function resolveAuth(env: NodeJS.ProcessEnv): AuthConfig {
       github: {
         kind: "app",
         appId: env.BOULE_APP_ID,
-        installationId: Number(env.BOULE_APP_INSTALLATION_ID),
+        installationId: env.BOULE_APP_INSTALLATION_ID,
         privateKey: readKeyMaybeBase64(env.BOULE_APP_PRIVATE_KEY),
       },
     };

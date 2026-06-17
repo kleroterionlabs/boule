@@ -1,27 +1,11 @@
-// src/observability/logger.ts — structured JSON logs (pretty on TTY); redacts secrets on egress.
-import pino, { type Logger as PinoLogger } from "pino";
+// src/observability/logger.ts — structured JSON logs. The pino logger is built in @kleroterion/koine;
+// this adapter keeps Boule's existing createLogger(cfg, runId) signature and call sites unchanged,
+// delegating to koine and tagging the service as "boule".
+import { type Logger, createLogger as koineLogger } from "@kleroterion/koine";
 import type { Config } from "../config/schema.js";
 
-export type Logger = PinoLogger;
+export type { Logger };
 
 export function createLogger(cfg: Config, runId: string): Logger {
-  return pino({
-    level: cfg.log.level,
-    base: { runId, service: "boule" },
-    timestamp: pino.stdTimeFunctions.isoTime,
-    redact: {
-      paths: [
-        "*.token",
-        "*.apiKey",
-        "*.privateKey",
-        "headers.authorization",
-        "CLAUDE_CODE_OAUTH_TOKEN",
-        "ANTHROPIC_API_KEY",
-        "GITHUB_TOKEN",
-        "BOULE_APP_PRIVATE_KEY",
-      ],
-      censor: "[REDACTED]",
-    },
-    ...(cfg.log.pretty ? { transport: { target: "pino-pretty" } } : {}),
-  });
+  return koineLogger({ level: cfg.log.level, service: "boule", runId });
 }

@@ -1,18 +1,9 @@
 // src/core/types.ts — GitHub-agnostic domain lingua franca. Imports nothing with side effects.
+// ArtifactKind + Fingerprint are single-sourced from @kleroterion/koine; all other domain types below
+// stay Boule-specific. Imported locally (for use within this file) and re-exported for callers.
+import type { ArtifactKind, Fingerprint } from "@kleroterion/koine";
 
-export type ArtifactKind =
-  | "design"
-  | "requirement"
-  | "competitor"
-  | "market"
-  | "gap"
-  | "epic"
-  | "feature"
-  | "task"
-  | "spike";
-
-/** Stable identity / dedupe key. Branded so a raw string can't be passed by accident. */
-export type Fingerprint = string & { readonly __brand: "Fingerprint" };
+export type { ArtifactKind, Fingerprint };
 
 export type MoscowPriority = "must" | "should" | "could" | "wont";
 
