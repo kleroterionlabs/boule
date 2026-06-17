@@ -29,19 +29,36 @@ export async function runAgent(args: RunArgs): Promise<AgentRunResult> {
   let numTurns = 0;
   let sessionId = "";
   const errors: string[] = [];
+  let gotResult = false;
 
-  for await (const msg of query({ prompt: args.prompt, options: args.options })) {
-    if (msg.type === "system" && msg.subtype === "init") {
-      sessionId = msg.session_id;
-      args.log.info({ sessionId }, "agent run started");
-      args.onSession?.(sessionId);
+  try {
+    for await (const msg of query({ prompt: args.prompt, options: args.options })) {
+      if (msg.type === "system" && msg.subtype === "init") {
+        sessionId = msg.session_id;
+        args.log.info({ sessionId }, "agent run started");
+        args.onSession?.(sessionId);
+      }
+      if (msg.type === "result") {
+        stopReason = stopReasonOf(msg.subtype);
+        numTurns = msg.num_turns;
+        meter.record(msg.total_cost_usd, msg.modelUsage ?? {});
+        if (msg.subtype !== "success") errors.push(...(msg.errors ?? []));
+        gotResult = true;
+        args.log.info({ stopReason, costUsd: msg.total_cost_usd, numTurns }, "agent run finished");
+      }
     }
-    if (msg.type === "result") {
-      stopReason = stopReasonOf(msg.subtype);
-      numTurns = msg.num_turns;
-      meter.record(msg.total_cost_usd, msg.modelUsage ?? {});
-      if (msg.subtype !== "success") errors.push(...(msg.errors ?? []));
-      args.log.info({ stopReason, costUsd: msg.total_cost_usd, numTurns }, "agent run finished");
+  } catch (err) {
+    // The SDK's Claude Code subprocess can exit non-zero on teardown AFTER delivering a terminal
+    // result message — that transport noise must not override a run whose outcome is already known.
+    // A failure BEFORE any result is real: record it and report the run as failed (don't rethrow,
+    // so the CLI exits via result.ok rather than an unhandled crash that aborts later pipeline steps).
+    const message = err instanceof Error ? err.message : String(err);
+    if (gotResult) {
+      args.log.warn({ err: message }, "agent transport error after result; keeping captured outcome");
+    } else {
+      args.log.error({ err: message }, "agent run failed before producing a result");
+      errors.push(message);
+      stopReason = "error_during_execution";
     }
   }
 
