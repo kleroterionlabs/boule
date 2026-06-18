@@ -4,6 +4,7 @@ import { getVersion } from "../util/version.js";
 import { registerAdvance } from "./commands/advance.js";
 import { registerAuth } from "./commands/auth.js";
 import { registerBootstrap } from "./commands/bootstrap.js";
+import { registerCiHealth } from "./commands/ci-health.js";
 import { registerCompete } from "./commands/compete.js";
 import { registerConfig } from "./commands/config.js";
 import { registerDaily } from "./commands/daily.js";
@@ -55,6 +56,7 @@ export function buildProgram(): Command {
     registerAdvance,
     registerStatus,
     registerDaily,
+    registerCiHealth,
     registerUndo,
     registerResume,
     registerResolve,
