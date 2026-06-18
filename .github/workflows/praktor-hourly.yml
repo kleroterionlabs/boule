@@ -31,7 +31,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PRAKTOR_VERSION: "0.0.2" # pinned @kleroterion/praktor; bump to adopt newer Praktor
+  PRAKTOR_VERSION: "0.0.3" # pinned @kleroterion/praktor; bump to adopt newer Praktor
 
 jobs:
   implement:
