@@ -28,7 +28,8 @@ type ListWorkflowRunsResponse = Awaited<
   ReturnType<Octokit["rest"]["actions"]["listWorkflowRunsForRepo"]>
 >["data"];
 
-function mapRepo(repo: ListOrgReposResponse[number]): OrgRepo {
+/** Map a raw org-repo API entry into the internal {@link OrgRepo} shape. */
+export function mapRepo(repo: ListOrgReposResponse[number]): OrgRepo {
   return {
     fullName: repo.full_name,
     name: repo.name,
@@ -36,7 +37,8 @@ function mapRepo(repo: ListOrgReposResponse[number]): OrgRepo {
   };
 }
 
-function mapRun(run: ListWorkflowRunsResponse["workflow_runs"][number]): WorkflowRun {
+/** Map a raw workflow-run API entry into the internal {@link WorkflowRun} shape. */
+export function mapRun(run: ListWorkflowRunsResponse["workflow_runs"][number]): WorkflowRun {
   return {
     id: run.id,
     name: run.name ?? "",
