@@ -34,6 +34,25 @@ export class CiHealthFetchError extends Error {
 }
 
 /**
+ * Raised when GitHub keeps responding with HTTP 429 after the retry budget is
+ * exhausted (see {@link withRetry}).
+ *
+ * Carries the number of {@link CiHealthRateLimitError.attempts attempts} made so
+ * callers can surface how hard we tried before giving up.
+ */
+export class CiHealthRateLimitError extends Error {
+  override name = "CiHealthRateLimitError";
+  constructor(
+    message: string,
+    /** Total number of attempts made (initial call plus retries) before giving up. */
+    readonly attempts: number,
+    options?: { cause?: unknown },
+  ) {
+    super(message, options);
+  }
+}
+
+/**
  * Internal representation of a GitHub Actions workflow run.
  *
  * This is the mapped, domain-facing shape: timestamps are `Date` objects rather

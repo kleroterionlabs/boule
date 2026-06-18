@@ -3,6 +3,7 @@
 // mapping the raw Actions API responses into the internal domain shapes.
 
 import type { Octokit } from "@octokit/rest";
+import { withRetry } from "./retry.js";
 import { CiHealthFetchError, type RepoRef, type WorkflowRun } from "./types.js";
 
 /** A typed client exposing the GitHub Actions endpoints used by CI-health. */
@@ -58,7 +59,10 @@ export function createActionsClient(octokit: Octokit): ActionsClient {
       let repos: OrgRepo[];
       try {
         // `paginate` follows `Link` headers automatically, returning every page flattened.
-        repos = await octokit.paginate(octokit.rest.repos.listForOrg, { org, per_page: 100 });
+        // `withRetry` transparently backs off on HTTP 429 responses.
+        repos = await withRetry(() =>
+          octokit.paginate(octokit.rest.repos.listForOrg, { org, per_page: 100 }),
+        );
       } catch (error) {
         const status = httpStatusOf(error);
         const suffix = status === undefined ? "" : ` (HTTP ${status})`;
@@ -69,7 +73,8 @@ export function createActionsClient(octokit: Octokit): ActionsClient {
       return repos.filter((repo) => !repo.archived && !repo.disabled).map(mapRepo);
     },
     async listRunsForRepo(owner: string, repo: string): Promise<WorkflowRun[]> {
-      const { data } = await octokit.rest.actions.listWorkflowRunsForRepo({ owner, repo });
+      // `withRetry` transparently backs off on HTTP 429 responses.
+      const { data } = await withRetry(() => octokit.rest.actions.listWorkflowRunsForRepo({ owner, repo }));
       return data.workflow_runs.map(mapRun);
     },
   };
