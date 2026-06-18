@@ -1,6 +1,39 @@
 // src/ci-health/types.ts — domain types for the CI-health feature slice.
 
 /**
+ * Lean reference to a GitHub repository.
+ *
+ * The mapped, domain-facing shape used throughout CI-health; carries only the
+ * identifiers downstream consumers need rather than the full Repos API payload.
+ */
+export interface RepoRef {
+  /** Login of the repository owner. */
+  owner: string;
+  /** Bare repository name. */
+  name: string;
+  /** `owner/repo` full name. */
+  fullName: string;
+}
+
+/**
+ * Raised when fetching CI-health data from GitHub fails.
+ *
+ * Carries the originating HTTP {@link CiHealthFetchError.status status} (when the
+ * failure came from an HTTP response) so callers can branch on it.
+ */
+export class CiHealthFetchError extends Error {
+  override name = "CiHealthFetchError";
+  constructor(
+    message: string,
+    /** HTTP status code of the failing response, or `undefined` for non-HTTP failures. */
+    readonly status?: number,
+    options?: { cause?: unknown },
+  ) {
+    super(message, options);
+  }
+}
+
+/**
  * Internal representation of a GitHub Actions workflow run.
  *
  * This is the mapped, domain-facing shape: timestamps are `Date` objects rather
