@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { Octokit } from "@octokit/rest";
 import { describe, expect, it, vi } from "vitest";
 import { checkActionsReadScope } from "../../src/doctor/checks/ci-health-scope.js";
@@ -74,5 +76,53 @@ describe("checkActionsReadScope", () => {
   it("Network error → not ok and does not throw", async () => {
     const request = vi.fn().mockRejectedValueOnce(new Error("ECONNRESET"));
     await expect(checkActionsReadScope(octokitWith(request))).resolves.toMatchObject({ ok: false });
+  });
+});
+
+describe("checkActionsReadScope remediation", () => {
+  it("Scope check fails → remediation populated with token-settings link and Fine-Grained guidance", async () => {
+    // Classic token lacking the actions scope yields ok === false.
+    const request = vi.fn().mockResolvedValueOnce(headUserResponse("repo, read:org"));
+    const result = await checkActionsReadScope(octokitWith(request));
+
+    expect(result.ok).toBe(false);
+    expect(typeof result.remediation).toBe("string");
+    expect(result.remediation).not.toBe("");
+    expect(result.remediation).toContain("https://github.com/settings/tokens");
+    expect(result.remediation).toContain("actions:read");
+    expect(result.remediation).toContain("Fine-Grained");
+    expect(result.remediation).toContain(
+      "Settings > Developer settings > Fine-grained tokens > [token name] > Permissions > Actions: Read",
+    );
+  });
+
+  it("Fine-Grained token denied (403) → remediation populated", async () => {
+    const forbidden = Object.assign(new Error("Forbidden"), { status: 403 });
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(headUserResponse(undefined))
+      .mockRejectedValueOnce(forbidden);
+
+    const result = await checkActionsReadScope(octokitWith(request), { owner: "o", repo: "r" });
+    expect(result.ok).toBe(false);
+    expect(result.remediation).toContain("https://github.com/settings/tokens");
+  });
+
+  it("Scope check passes → remediation absent", async () => {
+    const request = vi.fn().mockResolvedValueOnce(headUserResponse("repo, actions:read"));
+    const result = await checkActionsReadScope(octokitWith(request));
+    expect(result.ok).toBe(true);
+    expect(result.remediation).toBeUndefined();
+  });
+
+  it("Remediation constant is defined in the check file and referenced when ok === false", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("../../src/doctor/checks/ci-health-scope.ts", import.meta.url)),
+      "utf8",
+    );
+    // A named constant holds the remediation string.
+    expect(source).toMatch(/const\s+REMEDIATION_MESSAGE\s*=/);
+    // And it is referenced in the returned result.
+    expect(source).toContain("remediation: REMEDIATION_MESSAGE");
   });
 });
