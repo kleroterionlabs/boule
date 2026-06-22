@@ -10,9 +10,23 @@ export type ScopeCheckResult = {
   name: string;
   ok: boolean;
   hint: string;
+  /** Actionable remediation text, present only when `ok === false`. */
+  remediation?: string;
 };
 
 const CHECK_NAME = "actions:read scope";
+
+/**
+ * Human-facing guidance shown when the token lacks `actions:read`. Defined here so the wording
+ * lives in one place; the `boule doctor` formatter is responsible for rendering it.
+ */
+const REMEDIATION_MESSAGE = `The active GitHub token cannot read the Actions API because it is missing the actions:read scope.
+
+To fix this, grant the actions:read scope to your token:
+  • Classic token: visit https://github.com/settings/tokens and edit the token to include the "actions:read" scope (under "repo" for private repositories), then re-authenticate.
+  • Fine-Grained token: go to Settings > Developer settings > Fine-grained tokens > [token name] > Permissions > Actions: Read, save, then re-authenticate.
+
+Token settings: https://github.com/settings/tokens`;
 
 /** Extract the HTTP status from an Octokit `RequestError`-shaped value, if present. */
 function httpStatusOf(error: unknown): number | undefined {
@@ -50,6 +64,7 @@ export async function checkActionsReadScope(
         hint: ok
           ? "actions:read scope present"
           : "token is missing the actions:read scope — add it and re-authenticate",
+        ...(ok ? {} : { remediation: REMEDIATION_MESSAGE }),
       };
     }
 
@@ -59,6 +74,7 @@ export async function checkActionsReadScope(
         name: CHECK_NAME,
         ok: false,
         hint: "Token lacks x-oauth-scopes header and no repo context provided to probe Actions API",
+        remediation: REMEDIATION_MESSAGE,
       };
     }
 
@@ -80,6 +96,7 @@ export async function checkActionsReadScope(
           name: CHECK_NAME,
           ok: false,
           hint: "actions:read denied by Actions API probe (Fine-Grained token)",
+          remediation: REMEDIATION_MESSAGE,
         };
       }
       throw probeError;
@@ -90,6 +107,7 @@ export async function checkActionsReadScope(
       name: CHECK_NAME,
       ok: false,
       hint: `Actions scope check failed: ${message}`,
+      remediation: REMEDIATION_MESSAGE,
     };
   }
 }
